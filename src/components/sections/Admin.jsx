@@ -461,12 +461,11 @@ export default function Admin({ onBack, onViewGallery, onLogout }) {
                 {previewMode ? (
                   /* Preview Mode */
                   <div className="p-6">
-                    <div className="lg-prompt-box rounded-xl overflow-hidden mb-4 relative bg-[#0d0d0f] flex items-center justify-center">
+                    <div className={`lg-prompt-box rounded-xl overflow-hidden mb-4 relative bg-[#0d0d0f] flex items-center justify-center ${form.video ? "w-full aspect-video" : ""}`}>
                       {form.video ? (
                         <video
                           src={form.video}
-                          className="w-full h-auto block max-h-[40vh] object-contain"
-                          controls
+                          className="w-full h-full object-cover block"
                           autoPlay
                           muted
                           loop

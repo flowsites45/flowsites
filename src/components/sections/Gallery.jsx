@@ -362,8 +362,10 @@ export default function Gallery({ onAdminAuth, onHome }) {
                     {template.video ? (
                       <video
                         src={template.video}
-                        className="w-full h-auto block transition-opacity duration-500 group-hover:opacity-90"
+                        className="w-full aspect-video object-cover block transition-opacity duration-500 group-hover:opacity-90"
                         loading="lazy"
+                        autoPlay
+                        loop
                         muted
                         playsInline
                         preload="metadata"
@@ -520,7 +522,7 @@ export default function Gallery({ onAdminAuth, onHome }) {
               </div>
 
               {/* Left Content — Preview */}
-              <div className="flex-1 relative bg-[#070707] min-h-[240px] md:min-h-0 overflow-hidden order-1 md:order-1">
+              <div className={`flex-1 relative bg-[#070707] overflow-hidden order-1 md:order-1 ${previewTemplate.video ? "aspect-video" : "min-h-[240px] md:min-h-0"}`}>
                 <button
                   onClick={() => setPreviewTemplate(null)}
                   className="hidden md:flex absolute top-4 right-4 z-10 items-center justify-center w-9 h-9 rounded-full bg-gradient-to-b from-white/25 to-white/10 border border-white/30 border-t-white/50 text-white shadow-[0_8px_24px_-4px_rgba(0,0,0,0.3),inset_0_1px_0_0_rgba(255,255,255,0.4)] hover:from-white/35 hover:to-white/15 transition-colors"
@@ -532,7 +534,6 @@ export default function Gallery({ onAdminAuth, onHome }) {
                   <video
                     src={previewTemplate.video}
                     className="w-full h-full object-cover"
-                    controls
                     autoPlay
                     muted
                     loop
