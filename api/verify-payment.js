@@ -41,14 +41,12 @@ export default async function handler(req, res) {
       process.env.VITE_SUPABASE_URL ||
       process.env.VITE_PUBLIC_SUPABASE_URL ||
       process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey =
-      process.env.VITE_SUPABASE_ANON_KEY ||
-      process.env.VITE_PUBLIC_SUPABASE_ANON_KEY ||
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    // Use service role for server-side writes (bypasses RLS). NEVER expose this to client.
+    const serviceRole = process.env.SUPABASE_SERVICE_ROLE;
 
-    if (supabaseUrl && supabaseKey) {
-      const supabase = createClient(supabaseUrl, supabaseKey);
-      await supabase.from("subscriptions").upsert({
+    if (supabaseUrl && serviceRole) {
+      const supabase = createClient(supabaseUrl, serviceRole);
+      const { error: dbError } = await supabase.from("subscriptions").insert({
         email: user_email || null,
         plan: plan_name,
         billing_cycle,
@@ -57,7 +55,12 @@ export default async function handler(req, res) {
         razorpay_payment_id,
         razorpay_signature,
         status: "active",
-      }, { onConflict: "razorpay_subscription_id" });
+      });
+      if (dbError) {
+        console.error("Supabase insert error:", dbError.message);
+      }
+    } else {
+      console.error("Supabase service role env vars not configured on server.");
     }
 
     return res.status(200).json({ verified: true });
