@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { Check, Sparkles, ArrowRight } from "lucide-react";
+import { Check, Sparkles, ArrowRight, Loader2, AlertCircle } from "lucide-react";
+import { supabase } from "../../lib/supabase.js";
+import { createSubscription, verifyPayment, openRazorpayCheckout, getPlanId } from "../../lib/razorpay.js";
 
 const premiumFeatures = [
   { text: "Unlimited access to all assets", included: true },
@@ -22,6 +24,56 @@ export default function PricingPage({ onHome, onGallery, onGetStarted }) {
   const [yearly, setYearly] = useState(true);
   const premiumPrice = yearly ? 10 : 20;
   const premiumPlusPrice = yearly ? 15 : 30;
+  const [loading, setLoading] = useState(null);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
+
+  const handleSubscribe = async (planKey) => {
+    setError("");
+    setSuccess(false);
+    setLoading(planKey);
+
+    try {
+      const billingCycle = yearly ? "Yearly" : "Monthly";
+      const planName = planKey === "premium" ? "Premium" : "Premium+";
+      const planId = getPlanId(planKey, billingCycle);
+
+      const { data: { session } } = await supabase.auth.getSession();
+      const userEmail = session?.user?.email || "";
+
+      const { subscription_id, key_id } = await createSubscription(planKey, billingCycle, userEmail);
+
+      openRazorpayCheckout({
+        key_id,
+        subscription_id,
+        planName,
+        billingCycle,
+        userEmail,
+        onSuccess: async (paymentData) => {
+          try {
+            await verifyPayment({
+              ...paymentData,
+              plan_name: planName,
+              billing_cycle: billingCycle,
+              razorpay_plan_id: planId,
+              user_email: userEmail,
+            });
+            setSuccess(true);
+            setLoading(null);
+          } catch (err) {
+            setError("Payment verification failed: " + err.message);
+            setLoading(null);
+          }
+        },
+        onDismiss: () => {
+          setLoading(null);
+        },
+      });
+    } catch (err) {
+      setError(err.message || "Something went wrong");
+      setLoading(null);
+    }
+  };
 
   return (
     <div
@@ -135,10 +187,11 @@ export default function PricingPage({ onHome, onGallery, onGetStarted }) {
             </ul>
 
             <button
-              onClick={onGetStarted}
-              className="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-full bg-white text-[#070707] text-sm font-semibold hover:bg-white/90 transition-colors"
+              onClick={() => handleSubscribe("premium")}
+              disabled={loading !== null}
+              className="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-full bg-white text-[#070707] text-sm font-semibold hover:bg-white/90 transition-colors disabled:opacity-50"
             >
-              Subscribe <ArrowRight className="w-3.5 h-3.5" />
+              {loading === "premium" ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Subscribe <ArrowRight className="w-3.5 h-3.5" /></>}
             </button>
           </motion.div>
 
@@ -177,13 +230,28 @@ export default function PricingPage({ onHome, onGallery, onGetStarted }) {
             </ul>
 
             <button
-              onClick={onGetStarted}
-              className="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-full bg-white text-[#070707] text-sm font-semibold hover:bg-white/90 transition-colors"
+              onClick={() => handleSubscribe("premium+")}
+              disabled={loading !== null}
+              className="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-full bg-white text-[#070707] text-sm font-semibold hover:bg-white/90 transition-colors disabled:opacity-50"
             >
-              Subscribe <ArrowRight className="w-3.5 h-3.5" />
+              {loading === "premium+" ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Subscribe <ArrowRight className="w-3.5 h-3.5" /></>}
             </button>
           </motion.div>
         </div>
+
+        {error && (
+          <div className="flex items-center gap-2 mt-6 text-sm text-red-400 bg-red-400/10 border border-red-400/20 rounded-full px-4 py-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+
+        {success && (
+          <div className="flex items-center gap-2 mt-6 text-sm text-[#34d399] bg-[#34d399]/10 border border-[#34d399]/20 rounded-full px-4 py-2">
+            <Check className="w-4 h-4 shrink-0" />
+            <span>Subscription activated! Welcome to Flowsites Pro.</span>
+          </div>
+        )}
 
       </main>
     </div>
