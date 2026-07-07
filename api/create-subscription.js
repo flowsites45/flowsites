@@ -31,7 +31,9 @@ export default async function handler(req, res) {
       },
     };
     if (billing_cycle === "Yearly") {
-      payload.total_count = 12; // 12 billing cycles for yearly
+      payload.total_count = 12;
+    } else {
+      payload.total_count = 1;
     }
 
     const response = await fetch("https://api.razorpay.com/v1/subscriptions", {
