@@ -1,0 +1,141 @@
+import { supabase } from "./supabase.js";
+
+export async function getTemplates() {
+  const { data, error } = await supabase
+    .from("templates")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) {
+    console.error("Error fetching templates:", error);
+    return [];
+  }
+  return data || [];
+}
+
+export async function getPublishedTemplates() {
+  const { data, error } = await supabase
+    .from("templates")
+    .select("*")
+    .eq("published", true)
+    .order("created_at", { ascending: false });
+  if (error) {
+    console.error("Error fetching published templates:", error);
+    return [];
+  }
+  return data || [];
+}
+
+export async function addTemplate(data) {
+  const { data: result, error } = await supabase
+    .from("templates")
+    .insert([{
+      title: data.title,
+      category: data.category,
+      type: data.type,
+      image: data.image,
+      video: data.video || "",
+      prompt: data.prompt || "",
+      published: false,
+    }])
+    .select()
+    .single();
+  if (error) {
+    console.error("Error adding template:", error);
+    return null;
+  }
+  return result;
+}
+
+export async function updateTemplate(id, data) {
+  const { data: result, error } = await supabase
+    .from("templates")
+    .update({
+      title: data.title,
+      category: data.category,
+      type: data.type,
+      image: data.image,
+      video: data.video || "",
+      prompt: data.prompt || "",
+    })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) {
+    console.error("Error updating template:", error);
+    return null;
+  }
+  return result;
+}
+
+export async function deleteTemplate(id) {
+  const { error } = await supabase
+    .from("templates")
+    .delete()
+    .eq("id", id);
+  if (error) {
+    console.error("Error deleting template:", error);
+  }
+}
+
+export async function togglePublish(id) {
+  const { data: result } = await supabase
+    .from("templates")
+    .update({ published: true })
+    .eq("id", id)
+    .neq("published", true)
+    .select()
+    .single();
+
+  if (result) return result;
+
+  const { data: unpublished, error: error2 } = await supabase
+    .from("templates")
+    .update({ published: false })
+    .eq("id", id)
+    .eq("published", true)
+    .select()
+    .single();
+
+  if (error2) {
+    console.error("Error toggling publish:", error2);
+    return null;
+  }
+  return unpublished;
+}
+
+export async function incrementLikes(id) {
+  const { data, error } = await supabase.rpc("increment_likes", { template_id: id });
+  if (error) {
+    console.error("Error incrementing likes:", error);
+    return null;
+  }
+  return data;
+}
+
+export async function uploadImage(file) {
+  const ext = file.name.split(".").pop();
+  const fileName = `images/${Date.now()}-${Math.random().toString(36).slice(2, 9)}.${ext}`;
+  const { error: uploadError } = await supabase.storage
+    .from("templates")
+    .upload(fileName, file, { cacheControl: "3600", upsert: false });
+  if (uploadError) {
+    console.error("Error uploading image:", uploadError);
+    return null;
+  }
+  const { data: urlData } = supabase.storage.from("templates").getPublicUrl(fileName);
+  return urlData.publicUrl;
+}
+
+export async function uploadVideo(file) {
+  const ext = file.name.split(".").pop();
+  const fileName = `videos/${Date.now()}-${Math.random().toString(36).slice(2, 9)}.${ext}`;
+  const { error: uploadError } = await supabase.storage
+    .from("templates")
+    .upload(fileName, file, { cacheControl: "3600", upsert: false });
+  if (uploadError) {
+    console.error("Error uploading video:", uploadError);
+    return null;
+  }
+  const { data: urlData } = supabase.storage.from("templates").getPublicUrl(fileName);
+  return urlData.publicUrl;
+}
