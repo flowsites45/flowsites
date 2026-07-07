@@ -19,23 +19,28 @@ export default async function handler(req, res) {
   try {
     const auth = Buffer.from(`${keyId}:${keySecret}`).toString("base64");
 
+    // Build payload: include total_count only for Yearly; omit for Monthly to avoid BAD_REQUEST
+    const payload = {
+      plan_id,
+      quantity: 1,
+      customer_notify: 1,
+      notes: {
+        plan_name: plan_name || "",
+        billing_cycle: billing_cycle || "",
+        user_email: user_email || "",
+      },
+    };
+    if (billing_cycle === "Yearly") {
+      payload.total_count = 12; // 12 billing cycles for yearly
+    }
+
     const response = await fetch("https://api.razorpay.com/v1/subscriptions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Basic ${auth}`,
       },
-      body: JSON.stringify({
-        plan_id,
-        quantity: 1,
-        customer_notify: 1,
-        total_count: billing_cycle === "Yearly" ? 12 : 0,
-        notes: {
-          plan_name: plan_name || "",
-          billing_cycle: billing_cycle || "",
-          user_email: user_email || "",
-        },
-      }),
+      body: JSON.stringify(payload),
     });
 
     const data = await response.json();
