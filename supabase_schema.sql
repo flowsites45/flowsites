@@ -131,3 +131,6 @@ create policy "Authenticated can manage top layouts"
   to authenticated
   using (true)
   with check (true);
+
+-- Add position column to templates table for custom ordering
+alter table public.templates add column if not exists position integer default 0;

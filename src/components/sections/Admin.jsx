@@ -29,8 +29,7 @@ import {
   togglePublish,
   uploadImage,
   uploadVideo,
-  getTopLayouts,
-  saveTopLayouts,
+  saveTemplatesOrder,
 } from "../../lib/store";
 
 const categories = [
@@ -74,17 +73,12 @@ export default function Admin({ onBack, onViewGallery, onLogout }) {
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const fileInputRef = useRef(null);
 
-  const [activeTab, setActiveTab] = useState("templates");
-  const [topLayouts, setTopLayouts] = useState([]);
-  const [savingLayouts, setSavingLayouts] = useState(false);
-
   useEffect(() => {
     let mounted = true;
     setLoading(true);
-    Promise.all([getTemplates(), getTopLayouts()]).then(([templatesData, layoutsData]) => {
+    getTemplates().then((data) => {
       if (mounted) {
-        setTemplates(templatesData);
-        setTopLayouts(layoutsData);
+        setTemplates(data);
         setLoading(false);
       }
     });
@@ -96,93 +90,37 @@ export default function Admin({ onBack, onViewGallery, onLogout }) {
     setTimeout(() => setToast(null), 2500);
   }
 
-  const [rowFilters, setRowFilters] = useState({});
-  const [draggingItem, setDraggingItem] = useState(null);
+  const [draggingIndex, setDraggingIndex] = useState(null);
+  const [orderChanged, setOrderChanged] = useState(false);
+  const [savingOrder, setSavingOrder] = useState(false);
 
-  function handleAddRow() {
-    setTopLayouts((prev) => [
-      ...prev,
-      {
-        title: "New Featured Row",
-        template_ids: [],
-      },
-    ]);
-    showToast("New row added. Don't forget to save layout changes.");
+  function handleRowDragStart(index) {
+    setDraggingIndex(index);
   }
 
-  function handleDeleteRow(index) {
-    setTopLayouts((prev) => prev.filter((_, idx) => idx !== index));
-    showToast("Row deleted. Don't forget to save layout changes.");
-  }
-
-  function handleMoveRow(index, direction) {
-    setTopLayouts((prev) => {
+  function handleRowDrop(targetIndex) {
+    if (draggingIndex === null || draggingIndex === targetIndex) return;
+    setTemplates((prev) => {
       const next = [...prev];
-      const targetIndex = index + direction;
-      if (targetIndex < 0 || targetIndex >= next.length) return prev;
-      const temp = next[index];
-      next[index] = next[targetIndex];
-      next[targetIndex] = temp;
+      const [moved] = next.splice(draggingIndex, 1);
+      next.splice(targetIndex, 0, moved);
       return next;
     });
+    setDraggingIndex(null);
+    setOrderChanged(true);
   }
 
-  function handleUpdateRowTitle(index, newTitle) {
-    setTopLayouts((prev) =>
-      prev.map((row, idx) => (idx === index ? { ...row, title: newTitle } : row))
-    );
-  }
-
-  function handleRemoveTemplateFromRow(rowIndex, templateId) {
-    setTopLayouts((prev) =>
-      prev.map((row, idx) =>
-        idx === rowIndex
-          ? { ...row, template_ids: row.template_ids.filter((id) => id !== templateId) }
-          : row
-      )
-    );
-  }
-
-  function handleAddTemplateToRow(rowIndex, templateId) {
-    setTopLayouts((prev) =>
-      prev.map((row, idx) => {
-        if (idx !== rowIndex) return row;
-        if (row.template_ids.includes(templateId)) return row;
-        return { ...row, template_ids: [...row.template_ids, templateId] };
-      })
-    );
-  }
-
-  const handleTemplateDragStart = (rowIndex, templateIndex) => {
-    setDraggingItem({ rowIndex, templateIndex });
-  };
-
-  const handleTemplateDrop = (rowIndex, targetTemplateIndex) => {
-    if (!draggingItem) return;
-    const { rowIndex: sourceRowIndex, templateIndex: sourceTemplateIndex } = draggingItem;
-    if (sourceRowIndex !== rowIndex) return;
-    setTopLayouts((prev) => {
-      return prev.map((row, idx) => {
-        if (idx !== rowIndex) return row;
-        const newIds = [...row.template_ids];
-        const [movedId] = newIds.splice(sourceTemplateIndex, 1);
-        newIds.splice(targetTemplateIndex, 0, movedId);
-        return { ...row, template_ids: newIds };
-      });
-    });
-    setDraggingItem(null);
-  };
-
-  async function handleSaveLayouts() {
-    setSavingLayouts(true);
-    const success = await saveTopLayouts(topLayouts);
-    setSavingLayouts(false);
+  async function handleSaveOrder() {
+    setSavingOrder(true);
+    const success = await saveTemplatesOrder(templates);
+    setSavingOrder(false);
     if (success) {
-      showToast("Top templates layout saved successfully!");
-      const fresh = await getTopLayouts();
-      setTopLayouts(fresh);
+      showToast("Templates order saved successfully!");
+      setOrderChanged(false);
+      const fresh = await getTemplates();
+      setTemplates(fresh);
     } else {
-      showToast("Failed to save layouts");
+      showToast("Failed to save templates order");
     }
   }
 
@@ -327,6 +265,20 @@ export default function Admin({ onBack, onViewGallery, onLogout }) {
                 <Eye className="w-4 h-4" />
                 View Gallery
               </button>
+              {orderChanged && (
+                <button
+                  onClick={handleSaveOrder}
+                  disabled={savingOrder}
+                  className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold bg-[#34d399] text-[#070707] hover:bg-[#34d399]/90 disabled:opacity-50 transition-all shadow-[0_8px_20px_-6px_rgba(52,211,153,0.3)] animate-pulse"
+                >
+                  {savingOrder ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4" />
+                  )}
+                  <span>Save Order</span>
+                </button>
+              )}
               <button
                 onClick={handleOpenAdd}
                 className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium bg-white text-[#070707] hover:bg-white/90 transition-colors"
@@ -351,35 +303,7 @@ export default function Admin({ onBack, onViewGallery, onLogout }) {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
         
-        {/* Tab Navigation */}
-        <div className="flex items-center gap-2 mb-8 bg-white/5 border border-white/10 rounded-full p-1 w-fit">
-          <button
-            onClick={() => setActiveTab("templates")}
-            className={`flex items-center gap-2 px-5 py-2 rounded-full text-sm font-medium transition-all ${
-              activeTab === "templates"
-                ? "bg-white text-[#070707] shadow-lg"
-                : "text-white/60 hover:text-white"
-            }`}
-          >
-            <FileText className="w-4 h-4" />
-            Templates List
-          </button>
-          <button
-            onClick={() => setActiveTab("top-layouts")}
-            className={`flex items-center gap-2 px-5 py-2 rounded-full text-sm font-medium transition-all ${
-              activeTab === "top-layouts"
-                ? "bg-white text-[#070707] shadow-lg"
-                : "text-white/60 hover:text-white"
-            }`}
-          >
-            <Layers className="w-4 h-4" />
-            Configure Top Rows
-          </button>
-        </div>
-
-        {activeTab === "templates" ? (
-          <>
-            {/* Stats — Liquid Glass Cards */}
+        {/* Stats — Liquid Glass Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           {[
             { label: "Total Templates", value: templates.length, color: "text-white" },
@@ -421,7 +345,8 @@ export default function Admin({ onBack, onViewGallery, onLogout }) {
             <>
           {/* Desktop table header */}
           <div className="hidden md:grid grid-cols-12 gap-4 px-5 py-3 border-b border-white/5 text-xs font-medium text-white/30 uppercase tracking-wider">
-            <div className="col-span-4">Template</div>
+            <div className="col-span-1"></div>
+            <div className="col-span-3">Template</div>
             <div className="col-span-2">Category</div>
             <div className="col-span-1">Type</div>
             <div className="col-span-1">Likes</div>
@@ -431,13 +356,24 @@ export default function Admin({ onBack, onViewGallery, onLogout }) {
 
           {/* Rows */}
           <div className="divide-y divide-white/5">
-            {filtered.map((template) => (
+            {filtered.map((template, index) => (
               <div
                 key={template.id}
-                className="grid grid-cols-1 md:grid-cols-12 gap-4 px-5 py-4 items-center hover:bg-white/5 transition-colors"
+                draggable={!search}
+                onDragStart={() => handleRowDragStart(index)}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={() => handleRowDrop(index)}
+                className={`grid grid-cols-1 md:grid-cols-12 gap-4 px-5 py-4 items-center hover:bg-white/5 transition-colors ${
+                  !search ? "cursor-grab active:cursor-grabbing" : ""
+                }`}
               >
+                {/* Drag handle */}
+                <div className="col-span-1 flex items-center justify-start text-white/20">
+                  {!search && <GripVertical className="w-4 h-4 cursor-grab hover:text-white/40 transition-colors" />}
+                </div>
+
                 {/* Template info */}
-                <div className="col-span-4 flex items-center gap-3">
+                <div className="col-span-3 flex items-center gap-3">
                   <div className="w-12 h-12 rounded-lg overflow-hidden bg-[#0d0d0f] shrink-0">
                     {template.image && (
                       <img
@@ -537,222 +473,7 @@ export default function Admin({ onBack, onViewGallery, onLogout }) {
             </>
           )}
         </div>
-        </>
-        ) : (
-          /* Top Templates Layout Manager Tab */
-          <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <h2 className="font-display text-2xl text-white">Top Templates Showcase</h2>
-                <p className="text-sm text-white/40">Configure horizontal rows of templates to highlight at the top of the gallery.</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={handleAddRow}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium bg-white/5 border border-white/10 text-white hover:bg-white/10 transition-colors"
-                >
-                  <Plus className="w-4 h-4" /> Add Showcase Row
-                </button>
-                <button
-                  onClick={handleSaveLayouts}
-                  disabled={savingLayouts}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold bg-white text-[#070707] hover:bg-white/90 disabled:opacity-50 transition-all shadow-[0_8px_24px_-8px_rgba(255,255,255,0.2)]"
-                >
-                  {savingLayouts ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" /> Saving...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="w-4 h-4" /> Save Layout
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
 
-            <div className="space-y-6">
-              {topLayouts.map((row, rowIdx) => (
-                <div key={row.id || rowIdx} className="lg-glass rounded-[2rem] p-6 space-y-4 relative">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/5 pb-4">
-                    {/* Row title editing */}
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="text"
-                        value={row.title}
-                        onChange={(e) => handleUpdateRowTitle(rowIdx, e.target.value)}
-                        className="bg-transparent border-b border-white/10 focus:border-white/40 text-lg font-semibold text-white px-1 py-0.5 focus:outline-none w-64 max-w-full font-display"
-                        placeholder="e.g. Featured Templates"
-                      />
-                      <span className="text-[10px] text-white/30 uppercase tracking-widest bg-white/5 px-2 py-1 rounded-md">
-                        {row.template_ids.length} items
-                      </span>
-                    </div>
-
-                    {/* Row controls */}
-                    <div className="flex items-center gap-2">
-                      <button
-                        disabled={rowIdx === 0}
-                        onClick={() => handleMoveRow(rowIdx, -1)}
-                        className="p-2 rounded-lg bg-white/5 border border-white/10 text-white/60 hover:text-white disabled:opacity-30 disabled:hover:text-white/60 transition-colors cursor-pointer"
-                        title="Move Row Up"
-                      >
-                        <ArrowUp className="w-4 h-4" />
-                      </button>
-                      <button
-                        disabled={rowIdx === topLayouts.length - 1}
-                        onClick={() => handleMoveRow(rowIdx, 1)}
-                        className="p-2 rounded-lg bg-white/5 border border-white/10 text-white/60 hover:text-white disabled:opacity-30 disabled:hover:text-white/60 transition-colors cursor-pointer"
-                        title="Move Row Down"
-                      >
-                        <ArrowDown className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (confirm(`Delete row "${row.title}"?`)) handleDeleteRow(rowIdx);
-                        }}
-                        className="p-2 rounded-lg bg-[#f87171]/10 border border-[#f87171]/20 text-[#f87171] hover:bg-[#f87171]/20 transition-colors cursor-pointer"
-                        title="Delete Row"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Templates List inside row — HTML5 Drag and Drop */}
-                  <div>
-                    <p className="text-xs font-semibold text-white/30 uppercase tracking-wider mb-2">Selected Templates (Drag to reorder)</p>
-                    <div className="flex flex-wrap gap-2.5 p-3 bg-black/25 rounded-2xl border border-white/5 min-h-[80px] items-center">
-                      {row.template_ids.map((id, itemIdx) => {
-                        const template = templates.find((t) => t.id === id);
-                        if (!template) return null;
-                        return (
-                          <div
-                            key={id}
-                            draggable
-                            onDragStart={() => handleTemplateDragStart(rowIdx, itemIdx)}
-                            onDragOver={(e) => e.preventDefault()}
-                            onDrop={() => handleTemplateDrop(rowIdx, itemIdx)}
-                            className="flex items-center gap-2 px-3 py-2 bg-[#121215] border border-white/8 rounded-xl cursor-grab active:cursor-grabbing hover:border-white/20 transition-all select-none"
-                          >
-                            <GripVertical className="w-3.5 h-3.5 text-white/20 cursor-grab shrink-0" />
-                            {template.image && (
-                              <img src={template.image} alt="" className="w-6.5 h-6.5 rounded-md object-cover bg-white/5 shrink-0" />
-                            )}
-                            <div className="min-w-0">
-                              <p className="text-xs font-medium text-white truncate max-w-[120px]">{template.title}</p>
-                            </div>
-                            <button
-                              onClick={() => handleRemoveTemplateFromRow(rowIdx, id)}
-                              className="p-1 rounded-full hover:bg-white/10 text-white/40 hover:text-white transition-colors ml-1 shrink-0"
-                            >
-                              <X className="w-3 h-3" />
-                            </button>
-                          </div>
-                        );
-                      })}
-                      {row.template_ids.length === 0 && (
-                        <div className="w-full flex items-center justify-center text-white/20 text-xs py-6">
-                          No templates added to this row yet. Add templates below.
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Search and add templates selector panel */}
-                  <div className="mt-4 pt-4 border-t border-white/5">
-                    <p className="text-xs font-semibold text-white/30 uppercase tracking-wider mb-3">Add Templates to Row</p>
-                    <div className="flex flex-wrap gap-2 mb-3">
-                      <select
-                        onChange={(e) => setRowFilters(prev => ({...prev, [rowIdx]: {...prev[rowIdx], category: e.target.value}}))}
-                        value={rowFilters[rowIdx]?.category || "All"}
-                        className="bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none cursor-pointer"
-                      >
-                        <option value="All" className="bg-[#121215]">All Categories</option>
-                        {categories.map(c => <option key={c} value={c} className="bg-[#121215]">{c}</option>)}
-                      </select>
-                      <select
-                        onChange={(e) => setRowFilters(prev => ({...prev, [rowIdx]: {...prev[rowIdx], type: e.target.value}}))}
-                        value={rowFilters[rowIdx]?.type || "All"}
-                        className="bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none cursor-pointer"
-                      >
-                        <option value="All" className="bg-[#121215]">All Types</option>
-                        <option value="Free" className="bg-[#121215]">Free</option>
-                        <option value="Premium" className="bg-[#121215]">Premium</option>
-                      </select>
-                      <select
-                        onChange={(e) => setRowFilters(prev => ({...prev, [rowIdx]: {...prev[rowIdx], status: e.target.value}}))}
-                        value={rowFilters[rowIdx]?.status || "All"}
-                        className="bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none cursor-pointer"
-                      >
-                        <option value="All" className="bg-[#121215]">All Statuses</option>
-                        <option value="Published" className="bg-[#121215]">Published</option>
-                        <option value="Draft" className="bg-[#121215]">Draft</option>
-                      </select>
-                      <input
-                        type="text"
-                        placeholder="Search templates to add..."
-                        value={rowFilters[rowIdx]?.search || ""}
-                        onChange={(e) => setRowFilters(prev => ({...prev, [rowIdx]: {...prev[rowIdx], search: e.target.value}}))}
-                        className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder:text-white/30 focus:outline-none flex-1 min-w-[150px]"
-                      />
-                    </div>
-
-                    {/* Match listing */}
-                    <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto lg-scroll p-2 bg-black/25 rounded-xl border border-white/5">
-                      {templates
-                        .filter(t => {
-                          const filters = rowFilters[rowIdx] || {};
-                          const matchesCategory = !filters.category || filters.category === "All" || t.category === filters.category;
-                          const matchesType = !filters.type || filters.type === "All" || t.type === filters.type;
-                          const matchesStatus = !filters.status || filters.status === "All" || (filters.status === "Published" ? t.published : !t.published);
-                          const matchesSearch = !filters.search || t.title.toLowerCase().includes(filters.search.toLowerCase());
-                          const notAlreadyAdded = !row.template_ids.includes(t.id);
-                          return matchesCategory && matchesType && matchesStatus && matchesSearch && notAlreadyAdded;
-                        })
-                        .slice(0, 15)
-                        .map(t => (
-                          <button
-                            key={t.id}
-                            onClick={() => handleAddTemplateToRow(rowIdx, t.id)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-white transition-colors cursor-pointer"
-                          >
-                            <Plus className="w-3 h-3 text-[#34d399]" />
-                            <span>{t.title}</span>
-                            <span className="text-[10px] text-white/40">({t.category})</span>
-                          </button>
-                        ))
-                      }
-                      {templates.filter(t => {
-                        const filters = rowFilters[rowIdx] || {};
-                        const matchesCategory = !filters.category || filters.category === "All" || t.category === filters.category;
-                        const matchesType = !filters.type || filters.type === "All" || t.type === filters.type;
-                        const matchesStatus = !filters.status || filters.status === "All" || (filters.status === "Published" ? t.published : !t.published);
-                        const matchesSearch = !filters.search || t.title.toLowerCase().includes(filters.search.toLowerCase());
-                        const notAlreadyAdded = !row.template_ids.includes(t.id);
-                        return matchesCategory && matchesType && matchesStatus && matchesSearch && notAlreadyAdded;
-                      }).length === 0 && (
-                        <p className="text-white/20 text-xs p-2">No templates match the filters or all matches are already added.</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-
-              {topLayouts.length === 0 && (
-                <div className="lg-glass rounded-[2rem] p-12 text-center flex flex-col items-center justify-center">
-                  <p className="text-white/30 text-sm mb-4">No top layouts rows configured yet.</p>
-                  <button
-                    onClick={handleAddRow}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-white text-[#070707] text-sm font-medium hover:bg-white/90 transition-colors"
-                  >
-                    <Plus className="w-4 h-4" /> Create Showcase Row
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
       </main>
 
       {/* Form Modal — Liquid Glass */}

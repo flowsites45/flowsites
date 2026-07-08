@@ -11,12 +11,12 @@ import {
   Filter,
   Play,
 } from "lucide-react";
-import { getPublishedTemplates, incrementLikes, getTopLayouts } from "../../lib/store";
+import { getPublishedTemplates, incrementLikes } from "../../lib/store";
 
 const categories = ["All", "Hero Section", "Landing Page", "Portfolio", "Dashboard", "Agency", "Ecommerce"];
 const backgroundCategory = "Background Assets";
 const types = ["All", "Free", "Premium"];
-const sortOptions = ["Popular", "Newest", "Liked"];
+const sortOptions = ["Featured", "Popular", "Newest", "Liked"];
 
 function formatLikes(value) {
   if (typeof value === "number" && value >= 1000) {
@@ -27,11 +27,10 @@ function formatLikes(value) {
 
 export default function Gallery({ onAdminAuth, onHome }) {
   const [templates, setTemplates] = useState([]);
-  const [topLayouts, setTopLayouts] = useState([]);
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedType, setSelectedType] = useState("All");
-  const [sortBy, setSortBy] = useState("Popular");
+  const [sortBy, setSortBy] = useState("Featured");
   const [copiedId, setCopiedId] = useState(null);
   const [showTypeMenu, setShowTypeMenu] = useState(false);
   const [showSortMenu, setShowSortMenu] = useState(false);
@@ -42,10 +41,9 @@ export default function Gallery({ onAdminAuth, onHome }) {
 
   useEffect(() => {
     let mounted = true;
-    Promise.all([getPublishedTemplates(), getTopLayouts()]).then(([templatesData, layoutsData]) => {
+    getPublishedTemplates().then((data) => {
       if (mounted) {
-        setTemplates(templatesData);
-        setTopLayouts(layoutsData);
+        setTemplates(data);
       }
     });
     return () => { mounted = false; };
@@ -89,7 +87,9 @@ export default function Gallery({ onAdminAuth, onHome }) {
     .sort((a, b) => {
       if (sortBy === "Popular") return b.likes - a.likes;
       if (sortBy === "Liked") return b.likes - a.likes;
-      return new Date(b.created_at) - new Date(a.created_at);
+      if (sortBy === "Newest") return new Date(b.created_at) - new Date(a.created_at);
+      // Featured: custom position ascending
+      return (a.position ?? 0) - (b.position ?? 0);
     });
 
   const hasActiveFilters = selectedCategory !== "All" || selectedType !== "All";
@@ -436,41 +436,11 @@ export default function Gallery({ onAdminAuth, onHome }) {
           )}
         </div>
 
-        {/* Top Templates Showcase Section */}
-        {selectedCategory === "All" && selectedType === "All" && search === "" && topLayouts.length > 0 && (
-          <div className="mb-14 space-y-10">
-            {topLayouts.map((row) => {
-              const rowTemplates = (row.template_ids || [])
-                .map((id) => templates.find((t) => t.id === id))
-                .filter((t) => t && t.published);
-
-              if (rowTemplates.length === 0) return null;
-
-              return (
-                <div key={row.id} className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h2 className="font-display text-2xl md:text-3xl text-white tracking-tight">✦ {row.title}</h2>
-                  </div>
-                  {/* Horizontal Scroll Wrapper */}
-                  <div className="flex overflow-x-auto gap-5 pb-5 scrollbar-none snap-x snap-mandatory lg-scroll">
-                    {rowTemplates.map((template) => renderTemplateCard(template, true))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
         {/* Results count */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pt-4 border-t border-white/5">
-          <div>
-            {selectedCategory === "All" && selectedType === "All" && search === "" && topLayouts.length > 0 && (
-              <h2 className="font-display text-xl text-white/90 mb-1">Browse All Templates</h2>
-            )}
-            <p className="text-sm text-white/40">
-              Showing <span className="text-white font-medium">{filtered.length}</span> prompts
-            </p>
-          </div>
+        <div className="flex items-center justify-between mb-6">
+          <p className="text-sm text-white/40">
+            Showing <span className="text-white font-medium">{filtered.length}</span> prompts
+          </p>
         </div>
 
         {/* Template Grid */}

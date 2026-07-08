@@ -4,6 +4,7 @@ export async function getTemplates() {
   const { data, error } = await supabase
     .from("templates")
     .select("*")
+    .order("position", { ascending: true })
     .order("created_at", { ascending: false });
   if (error) {
     console.error("Error fetching templates:", error);
@@ -17,6 +18,7 @@ export async function getPublishedTemplates() {
     .from("templates")
     .select("*")
     .eq("published", true)
+    .order("position", { ascending: true })
     .order("created_at", { ascending: false });
   if (error) {
     console.error("Error fetching published templates:", error);
@@ -179,6 +181,19 @@ export async function saveTopLayouts(layouts) {
 
   if (insertError) {
     console.error("Error inserting top layouts:", insertError);
+    return false;
+  }
+  return true;
+}
+
+export async function saveTemplatesOrder(templates) {
+  const updates = templates.map((t, idx) => ({
+    id: t.id,
+    position: idx,
+  }));
+  const { error } = await supabase.from("templates").upsert(updates);
+  if (error) {
+    console.error("Error saving templates order:", error);
     return false;
   }
   return true;
