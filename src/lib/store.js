@@ -217,10 +217,16 @@ export async function getUserProfile(userId) {
   return data || null;
 }
 
-export async function createUserProfile(userId) {
+export async function createUserProfile(userId, email = "", fullName = "", avatarUrl = "") {
   const { data, error } = await supabase
     .from("user_profiles")
-    .upsert({ id: userId, plan: "free" })
+    .upsert({
+      id: userId,
+      email,
+      full_name: fullName,
+      avatar_url: avatarUrl,
+      plan: "free"
+    })
     .select()
     .single();
   if (error) {

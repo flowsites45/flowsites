@@ -149,10 +149,14 @@ alter table public.templates
 -- 2. User Profiles table
 create table if not exists public.user_profiles (
   id uuid primary key references auth.users(id) on delete cascade,
+  email text,
+  full_name text,
+  avatar_url text,
   plan text not null default 'free'
     check (plan in ('free', 'premium', 'premium_plus')),
   razorpay_subscription_id text,
   subscription_expires_at timestamptz,
+  created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
 
@@ -173,13 +177,24 @@ create policy "Users insert own profile"
   on public.user_profiles for insert
   with check (auth.uid() = id);
 
--- 3. Auto-create free profile on signup
+-- 3. Auto-create free profile on signup (Email or Social/Google Signups)
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer as $$
 begin
-  insert into public.user_profiles (id, plan)
-  values (new.id, 'free')
-  on conflict (id) do nothing;
+  insert into public.user_profiles (id, email, full_name, avatar_url, plan)
+  values (
+    new.id,
+    new.email,
+    coalesce(new.raw_user_meta_data->>'full_name', new.raw_user_meta_data->>'name', ''),
+    coalesce(new.raw_user_meta_data->>'avatar_url', ''),
+    'free'
+  )
+  on conflict (id) do update
+  set
+    email = excluded.email,
+    full_name = excluded.full_name,
+    avatar_url = excluded.avatar_url,
+    updated_at = now();
   return new;
 end;
 $$;
@@ -188,3 +203,4 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
+

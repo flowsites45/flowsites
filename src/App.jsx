@@ -59,11 +59,17 @@ export default function App() {
   const [pendingCopyTemplateId, setPendingCopyTemplateId] = useState(null);
   const [pendingSubscribePlanId, setPendingSubscribePlanId] = useState(null);
 
-  async function loadUserProfile(userId) {
-    let profile = await getUserProfile(userId);
+  async function loadUserProfile(user) {
+    if (!user) return;
+    let profile = await getUserProfile(user.id);
     if (!profile) {
-      await createUserProfile(userId);
-      profile = { id: userId, plan: "free" };
+      const email = user.email || "";
+      const fullName = user.user_metadata?.full_name || user.user_metadata?.name || "";
+      const avatarUrl = user.user_metadata?.avatar_url || "";
+      profile = await createUserProfile(user.id, email, fullName, avatarUrl);
+      if (!profile) {
+        profile = { id: user.id, plan: "free", email, full_name: fullName, avatar_url: avatarUrl };
+      }
     }
     setUserProfile(profile);
   }
@@ -71,11 +77,11 @@ export default function App() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
-      if (data.session?.user) loadUserProfile(data.session.user.id);
+      if (data.session?.user) loadUserProfile(data.session.user);
     });
     const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession);
-      if (newSession?.user) loadUserProfile(newSession.user.id);
+      if (newSession?.user) loadUserProfile(newSession.user);
       else setUserProfile(null);
     });
     return () => listener.subscription.unsubscribe();
