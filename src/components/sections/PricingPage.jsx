@@ -266,6 +266,10 @@ export default function PricingPage({ onHome, onGallery, onGetStarted, session, 
           </div>
         )}
 
+        <p className="text-center text-xs text-white/30 mt-8 font-body tracking-wide">
+          Flowsites — service operated by Greyo AI company.
+        </p>
+
       </main>
     </div>
   );
