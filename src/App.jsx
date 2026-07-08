@@ -12,6 +12,7 @@ import {
   Code2
 } from "lucide-react"
 import { supabase } from "./lib/supabase.js"
+import { getUserProfile, createUserProfile } from "./lib/store.js"
 
 import Pricing from "./components/sections/Pricing"
 import PricingPage from "./components/sections/PricingPage"
@@ -54,26 +55,56 @@ export default function App() {
     return slugToView(path);
   })
   const [session, setSession] = useState(null)
+  const [userProfile, setUserProfile] = useState(null);
   const [pendingCopyTemplateId, setPendingCopyTemplateId] = useState(null);
+  const [pendingSubscribePlanId, setPendingSubscribePlanId] = useState(null);
+
+  async function loadUserProfile(userId) {
+    let profile = await getUserProfile(userId);
+    if (!profile) {
+      await createUserProfile(userId);
+      profile = { id: userId, plan: "free" };
+    }
+    setUserProfile(profile);
+  }
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
+      if (data.session?.user) loadUserProfile(data.session.user.id);
     });
     const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession);
+      if (newSession?.user) loadUserProfile(newSession.user.id);
+      else setUserProfile(null);
     });
     return () => listener.subscription.unsubscribe();
   }, []);
 
   function handleAuthSuccess() {
-    setView("gallery");
     // pendingCopyTemplateId is already set — Gallery will auto-copy on mount
+    // pendingSubscribePlanId is already set — PricingPage will auto-trigger on mount
+    if (pendingSubscribePlanId) {
+      setView("pricing");
+    } else {
+      setView("gallery");
+    }
   }
 
-  function handleAuthRequired(templateId) {
-    setPendingCopyTemplateId(templateId);
+  function handleAuthRequired(id) {
+    // id is either a templateId (copy) or a planKey (subscribe)
+    if (typeof id === "string" && ["premium", "premium+"].includes(id)) {
+      setPendingSubscribePlanId(id);
+    } else {
+      setPendingCopyTemplateId(id);
+    }
     setView("auth");
+  }
+
+  function handleSubscribeSuccess(planKey) {
+    // Refresh user profile after successful payment
+    if (session?.user) loadUserProfile(session.user.id);
+    setPendingSubscribePlanId(null);
   }
 
   useEffect(() => {
@@ -113,9 +144,12 @@ export default function App() {
           onAdminAuth={() => setView("admin-auth")} 
           onHome={() => setView("landing")} 
           session={session}
+          userProfile={userProfile}
           onAuthRequired={handleAuthRequired}
+          onGoUnlimited={() => setView("pricing")}
           pendingCopyTemplateId={pendingCopyTemplateId}
           onClearPendingCopy={() => setPendingCopyTemplateId(null)}
+          onLogout={async () => { await supabase.auth.signOut(); setUserProfile(null); }}
         />
         <PremiumCursor />
       </>
@@ -129,6 +163,12 @@ export default function App() {
           onHome={() => setView("landing")}
           onGallery={() => setView("gallery")}
           onGetStarted={() => setView("auth")}
+          session={session}
+          userProfile={userProfile}
+          onAuthRequired={handleAuthRequired}
+          onSubscribeSuccess={handleSubscribeSuccess}
+          pendingSubscribePlanId={pendingSubscribePlanId}
+          onClearPendingSubscribe={() => setPendingSubscribePlanId(null)}
         />
         <PremiumCursor />
       </>

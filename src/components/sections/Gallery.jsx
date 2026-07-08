@@ -10,12 +10,16 @@ import {
   Sparkles,
   Filter,
   Play,
+  Zap,
+  Crown,
 } from "lucide-react";
 import { getPublishedTemplates, incrementLikes } from "../../lib/store";
+import { canCopy, requiredPlanLabel } from "../../lib/access.js";
+import UserProfileMenu from "../UserProfileMenu.jsx";
 
 const categories = ["All", "Hero Section", "Landing Page", "Portfolio", "Dashboard", "Agency", "Ecommerce"];
 const backgroundCategory = "Background Assets";
-const types = ["All", "Free", "Premium"];
+const types = ["All", "Free", "Premium", "Premium Plus"];
 const sortOptions = ["Featured", "Popular", "Newest", "Liked"];
 
 function formatLikes(value) {
@@ -25,7 +29,7 @@ function formatLikes(value) {
   return value + "";
 }
 
-export default function Gallery({ onAdminAuth, onHome, session, onAuthRequired, pendingCopyTemplateId, onClearPendingCopy }) {
+export default function Gallery({ onAdminAuth, onHome, session, userProfile, onAuthRequired, onGoUnlimited, pendingCopyTemplateId, onClearPendingCopy, onLogout }) {
   const [templates, setTemplates] = useState([]);
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
@@ -95,9 +99,14 @@ export default function Gallery({ onAdminAuth, onHome, session, onAuthRequired, 
   const hasActiveFilters = selectedCategory !== "All" || selectedType !== "All";
 
   function handleCopy(template) {
-    // Gate behind authentication
+    // Gate behind authentication first
     if (!session) {
       onAuthRequired && onAuthRequired(template.id);
+      return;
+    }
+    // Gate behind subscription plan
+    if (!canCopy(template, userProfile)) {
+      onGoUnlimited && onGoUnlimited();
       return;
     }
     const prompt = template.prompt || `Build a premium ${template.title.toLowerCase()} website using React, Tailwind CSS, and Framer Motion. Use a dark aesthetic, glassmorphism cards, smooth scroll animations, and responsive layouts.`;
@@ -226,20 +235,42 @@ export default function Gallery({ onAdminAuth, onHome, session, onAuthRequired, 
               </h3>
               <p className="text-xs text-white/40 font-medium">{template.category}</p>
             </div>
-            <button
-              onClick={() => handleCopy(template)}
-              className="lg-pill shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white/60 hover:text-white transition-colors"
-            >
-              {copiedId === template.id ? (
-                <>
-                  <Check className="w-3.5 h-3.5 text-[#34d399]" /> Copied
-                </>
-              ) : (
-                <>
+            {/* Access-aware Copy button */}
+            {(() => {
+              const accessible = !session || canCopy(template, userProfile);
+              const badgeLabel = requiredPlanLabel(template.type);
+              if (copiedId === template.id) {
+                return (
+                  <button className="lg-pill shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-[#34d399]">
+                    <Check className="w-3.5 h-3.5" /> Copied
+                  </button>
+                );
+              }
+              if (!accessible && badgeLabel) {
+                const isPremiumPlus = template.type === "Premium Plus";
+                return (
+                  <button
+                    onClick={() => onGoUnlimited && onGoUnlimited()}
+                    className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                      isPremiumPlus
+                        ? "bg-amber-500/10 border-amber-500/20 text-amber-400 hover:bg-amber-500/20"
+                        : "bg-violet-500/10 border-violet-500/20 text-violet-400 hover:bg-violet-500/20"
+                    }`}
+                  >
+                    {isPremiumPlus ? <Crown className="w-3 h-3" /> : <Zap className="w-3 h-3" />}
+                    {badgeLabel}
+                  </button>
+                );
+              }
+              return (
+                <button
+                  onClick={() => handleCopy(template)}
+                  className="lg-pill shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white/60 hover:text-white transition-colors"
+                >
                   <Copy className="w-3.5 h-3.5" /> Copy
-                </>
-              )}
-            </button>
+                </button>
+              );
+            })()}
           </div>
         </div>
       </motion.div>
@@ -367,6 +398,25 @@ export default function Gallery({ onAdminAuth, onHome, session, onAuthRequired, 
                   )}
                 </AnimatePresence>
               </div>
+
+              {/* Go Unlimited button */}
+              <button
+                onClick={() => onGoUnlimited && onGoUnlimited()}
+                className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-semibold bg-gradient-to-r from-violet-500/20 to-amber-500/20 border border-white/10 text-white/70 hover:text-white hover:border-white/20 transition-all"
+              >
+                <Zap className="w-3 h-3 text-amber-400" />
+                Go Unlimited
+              </button>
+
+              {/* User profile menu */}
+              {session && (
+                <UserProfileMenu
+                  session={session}
+                  userProfile={userProfile}
+                  onUpgrade={() => onGoUnlimited && onGoUnlimited()}
+                  onLogout={onLogout}
+                />
+              )}
             </div>
           </div>
         </div>
@@ -546,16 +596,42 @@ export default function Gallery({ onAdminAuth, onHome, session, onAuthRequired, 
                   );
                 })()}
 
-                <button
-                  onClick={() => handleCopy(previewTemplate)}
-                  className="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-full bg-white text-[#070707] text-sm font-semibold hover:bg-white/90 transition-colors shadow-[0_8px_24px_-8px_rgba(255,255,255,0.2)]"
-                >
-                  {copiedId === previewTemplate.id ? (
-                    <><Check className="w-4 h-4 text-[#34d399]" /> Copied</>
-                  ) : (
-                    <><Copy className="w-4 h-4" /> Copy full prompt</>
-                  )}
-                </button>
+                {/* Access-aware Copy button — preview modal */}
+                {(() => {
+                  const accessible = !session || canCopy(previewTemplate, userProfile);
+                  const badgeLabel = requiredPlanLabel(previewTemplate.type);
+                  if (copiedId === previewTemplate.id) {
+                    return (
+                      <button className="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-full bg-white text-[#070707] text-sm font-semibold transition-colors shadow-[0_8px_24px_-8px_rgba(255,255,255,0.2)]">
+                        <Check className="w-4 h-4 text-[#34d399]" /> Copied
+                      </button>
+                    );
+                  }
+                  if (!accessible && badgeLabel) {
+                    const isPremiumPlus = previewTemplate.type === "Premium Plus";
+                    return (
+                      <button
+                        onClick={() => { setPreviewTemplate(null); onGoUnlimited && onGoUnlimited(); }}
+                        className={`w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-full text-sm font-semibold border transition-colors ${
+                          isPremiumPlus
+                            ? "bg-amber-500/10 border-amber-500/20 text-amber-400 hover:bg-amber-500/20"
+                            : "bg-violet-500/10 border-violet-500/20 text-violet-400 hover:bg-violet-500/20"
+                        }`}
+                      >
+                        {isPremiumPlus ? <Crown className="w-4 h-4" /> : <Zap className="w-4 h-4" />}
+                        Unlock {badgeLabel}
+                      </button>
+                    );
+                  }
+                  return (
+                    <button
+                      onClick={() => handleCopy(previewTemplate)}
+                      className="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-full bg-white text-[#070707] text-sm font-semibold hover:bg-white/90 transition-colors shadow-[0_8px_24px_-8px_rgba(255,255,255,0.2)]"
+                    >
+                      <Copy className="w-4 h-4" /> Copy full prompt
+                    </button>
+                  );
+                })()}
 
               </div>
 

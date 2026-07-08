@@ -1,3 +1,5 @@
+const SUPABASE_FUNCTIONS_URL = "https://gkwkgnycjocvxyglnzrq.supabase.co/functions/v1";
+
 const PLAN_IDS = {
   premium: {
     Monthly: "plan_TAgBmeNsqoZf00",
@@ -19,7 +21,7 @@ export async function createSubscription(planKey, billingCycle, userEmail) {
 
   const plan_name = planKey === "premium" ? "Premium" : "Premium+";
 
-  const res = await fetch("/api/create-subscription", {
+  const res = await fetch(`${SUPABASE_FUNCTIONS_URL}/create-subscription`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -37,7 +39,7 @@ export async function createSubscription(planKey, billingCycle, userEmail) {
 }
 
 export async function verifyPayment(payload) {
-  const res = await fetch("/api/verify-payment", {
+  const res = await fetch(`${SUPABASE_FUNCTIONS_URL}/verify-payment`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),

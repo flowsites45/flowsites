@@ -134,3 +134,57 @@ create policy "Authenticated can manage top layouts"
 
 -- Add position column to templates table for custom ordering
 alter table public.templates add column if not exists position integer default 0;
+
+-- ════════════════════════════════════════════════════════════════
+-- SUBSCRIPTION ADDITIONS — Run in Supabase SQL Editor
+-- ════════════════════════════════════════════════════════════════
+
+-- 1. Update templates type constraint to include Premium Plus
+alter table public.templates
+  drop constraint if exists templates_type_check;
+alter table public.templates
+  add constraint templates_type_check
+  check (type in ('Free', 'Premium', 'Premium Plus'));
+
+-- 2. User Profiles table
+create table if not exists public.user_profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  plan text not null default 'free'
+    check (plan in ('free', 'premium', 'premium_plus')),
+  razorpay_subscription_id text,
+  subscription_expires_at timestamptz,
+  updated_at timestamptz default now()
+);
+
+alter table public.user_profiles enable row level security;
+
+drop policy if exists "Users read own profile" on public.user_profiles;
+create policy "Users read own profile"
+  on public.user_profiles for select
+  using (auth.uid() = id);
+
+drop policy if exists "Users update own profile" on public.user_profiles;
+create policy "Users update own profile"
+  on public.user_profiles for update
+  using (auth.uid() = id);
+
+drop policy if exists "Users insert own profile" on public.user_profiles;
+create policy "Users insert own profile"
+  on public.user_profiles for insert
+  with check (auth.uid() = id);
+
+-- 3. Auto-create free profile on signup
+create or replace function public.handle_new_user()
+returns trigger language plpgsql security definer as $$
+begin
+  insert into public.user_profiles (id, plan)
+  values (new.id, 'free')
+  on conflict (id) do nothing;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.handle_new_user();

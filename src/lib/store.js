@@ -201,3 +201,51 @@ export async function saveTemplatesOrder(templates) {
   }
   return true;
 }
+
+// ── User Profile ─────────────────────────────────────────────────
+
+export async function getUserProfile(userId) {
+  const { data, error } = await supabase
+    .from("user_profiles")
+    .select("*")
+    .eq("id", userId)
+    .single();
+  if (error && error.code !== "PGRST116") {
+    console.error("Error fetching user profile:", error);
+    return null;
+  }
+  return data || null;
+}
+
+export async function createUserProfile(userId) {
+  const { data, error } = await supabase
+    .from("user_profiles")
+    .insert({ id: userId, plan: "free" })
+    .select()
+    .single();
+  if (error) {
+    // Conflict = already exists, that's fine
+    if (error.code === "23505") return null;
+    console.error("Error creating user profile:", error);
+    return null;
+  }
+  return data;
+}
+
+export async function updateUserPlan(userId, plan, razorpaySubscriptionId = null) {
+  const { data, error } = await supabase
+    .from("user_profiles")
+    .upsert({
+      id: userId,
+      plan,
+      razorpay_subscription_id: razorpaySubscriptionId,
+      updated_at: new Date().toISOString(),
+    })
+    .select()
+    .single();
+  if (error) {
+    console.error("Error updating user plan:", error);
+    return null;
+  }
+  return data;
+}

@@ -1,7 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Check, Sparkles, ArrowRight, Loader2, AlertCircle } from "lucide-react";
-import { supabase } from "../../lib/supabase.js";
 import { createSubscription, verifyPayment, openRazorpayCheckout, getPlanId } from "../../lib/razorpay.js";
 
 const premiumFeatures = [
@@ -20,7 +19,7 @@ const premiumPlusFeatures = [
   { text: "Dedicated support", included: true },
 ];
 
-export default function PricingPage({ onHome, onGallery, onGetStarted }) {
+export default function PricingPage({ onHome, onGallery, onGetStarted, session, userProfile, onAuthRequired, onSubscribeSuccess, pendingSubscribePlanId, onClearPendingSubscribe }) {
   const [yearly, setYearly] = useState(true);
   const premiumPrice = yearly ? 10 : 20;
   const premiumPlusPrice = yearly ? 15 : 30;
@@ -28,17 +27,33 @@ export default function PricingPage({ onHome, onGallery, onGetStarted }) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
+  // Auto-trigger checkout if user just authenticated with a pending plan
+  useEffect(() => {
+    if (pendingSubscribePlanId && session) {
+      onClearPendingSubscribe && onClearPendingSubscribe();
+      // Small delay to let the page render before opening Razorpay
+      setTimeout(() => handleSubscribe(pendingSubscribePlanId), 400);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingSubscribePlanId, session]);
+
   const handleSubscribe = async (planKey) => {
     setError("");
     setSuccess(false);
     setLoading(planKey);
+
+    // Gate behind authentication
+    if (!session) {
+      setLoading(null);
+      onAuthRequired && onAuthRequired(planKey);
+      return;
+    }
 
     try {
       const billingCycle = yearly ? "Yearly" : "Monthly";
       const planName = planKey === "premium" ? "Premium" : "Premium+";
       const planId = getPlanId(planKey, billingCycle);
 
-      const { data: { session } } = await supabase.auth.getSession();
       const userEmail = session?.user?.email || "";
 
       const { subscription_id, key_id } = await createSubscription(planKey, billingCycle, userEmail);
@@ -60,6 +75,7 @@ export default function PricingPage({ onHome, onGallery, onGetStarted }) {
             });
             setSuccess(true);
             setLoading(null);
+            onSubscribeSuccess && onSubscribeSuccess(planKey);
           } catch (err) {
             setError("Payment verification failed: " + err.message);
             setLoading(null);

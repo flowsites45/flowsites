@@ -41,7 +41,7 @@ const categories = [
   "Ecommerce",
   "Background Assets",
 ];
-const types = ["Free", "Premium"];
+const types = ["Free", "Premium", "Premium Plus"];
 
 const emptyForm = {
   title: "",
@@ -400,7 +400,9 @@ export default function Admin({ onBack, onViewGallery, onLogout }) {
                 <div className="col-span-1">
                   <span
                     className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                      template.type === "Premium"
+                      template.type === "Premium Plus"
+                        ? "bg-amber-500/15 text-amber-400 border border-amber-500/20"
+                        : template.type === "Premium"
                         ? "bg-[#fbbf24]/15 text-[#fbbf24] border border-[#fbbf24]/20"
                         : "bg-[#34d399]/15 text-[#34d399] border border-[#34d399]/20"
                     }`}
@@ -550,7 +552,9 @@ export default function Admin({ onBack, onViewGallery, onLogout }) {
                       </span>
                       <span
                         className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                          form.type === "Premium"
+                          form.type === "Premium Plus"
+                            ? "bg-amber-500/15 text-amber-400"
+                            : form.type === "Premium"
                             ? "bg-[#fbbf24]/15 text-[#fbbf24]"
                             : "bg-[#34d399]/15 text-[#34d399]"
                         }`}
