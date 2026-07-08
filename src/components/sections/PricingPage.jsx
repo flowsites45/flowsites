@@ -171,20 +171,32 @@ export default function PricingPage({ onHome, onGallery, onGetStarted, session, 
             transition={{ duration: 0.6, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
             className="lg-card rounded-[1.5rem] w-full md:flex-1 p-8 md:p-10"
           >
-            <div className="text-center mb-8">
+            <div className="text-center mb-6">
               <h2 className="font-display text-xl text-white/90 mb-4">Premium</h2>
               <div className="flex items-end justify-center gap-1.5 mb-2">
                 <span className="font-display text-5xl text-white tracking-tight">${premiumPrice}</span>
                 <span className="text-white/40 text-sm mb-2">/mo</span>
               </div>
               {yearly && (
-                <p className="text-xs text-white/40">Billed annually (${premiumPrice * 12}/yr)</p>
+                <p className="text-xs text-white/40 mb-4">Billed annually (${premiumPrice * 12}/yr)</p>
               )}
+
+              <button
+                onClick={() => handleSubscribe("premium")}
+                disabled={loading !== null}
+                className="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-full bg-white text-[#070707] text-sm font-semibold hover:bg-white/90 transition-colors disabled:opacity-50 mb-3"
+              >
+                {loading === "premium" ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Subscribe <ArrowRight className="w-3.5 h-3.5" /></>}
+              </button>
+
+              <p className="text-[10px] text-white/30 tracking-wide">
+                Flowsites — service operated by Greyo AI company.
+              </p>
             </div>
 
             <div className="w-full h-px bg-white/8 mb-7" />
 
-            <ul className="space-y-4 mb-8">
+            <ul className="space-y-4 mb-3">
               {premiumFeatures.map((f) => (
                 <li key={f.text} className="flex items-center gap-3 text-sm">
                   <div className="w-5 h-5 rounded-full bg-white/8 flex items-center justify-center shrink-0">
@@ -198,14 +210,6 @@ export default function PricingPage({ onHome, onGallery, onGetStarted, session, 
                 </li>
               ))}
             </ul>
-
-            <button
-              onClick={() => handleSubscribe("premium")}
-              disabled={loading !== null}
-              className="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-full bg-white text-[#070707] text-sm font-semibold hover:bg-white/90 transition-colors disabled:opacity-50"
-            >
-              {loading === "premium" ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Subscribe <ArrowRight className="w-3.5 h-3.5" /></>}
-            </button>
           </motion.div>
 
           {/* Premium+ Card */}
@@ -218,20 +222,32 @@ export default function PricingPage({ onHome, onGallery, onGetStarted, session, 
             <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-white text-[#070707] text-[10px] font-semibold tracking-wide">
               BEST VALUE
             </div>
-            <div className="text-center mb-8">
+            <div className="text-center mb-6">
               <h2 className="font-display text-xl text-white/90 mb-4">Premium+</h2>
               <div className="flex items-end justify-center gap-1.5 mb-2">
                 <span className="font-display text-5xl text-white tracking-tight">${premiumPlusPrice}</span>
                 <span className="text-white/40 text-sm mb-2">/mo</span>
               </div>
               {yearly && (
-                <p className="text-xs text-white/40">Billed annually (${premiumPlusPrice * 12}/yr)</p>
+                <p className="text-xs text-white/40 mb-4">Billed annually (${premiumPlusPrice * 12}/yr)</p>
               )}
+
+              <button
+                onClick={() => handleSubscribe("premium+")}
+                disabled={loading !== null}
+                className="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-full bg-white text-[#070707] text-sm font-semibold hover:bg-white/90 transition-colors disabled:opacity-50 mb-3"
+              >
+                {loading === "premium+" ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Subscribe <ArrowRight className="w-3.5 h-3.5" /></>}
+              </button>
+
+              <p className="text-[10px] text-white/30 tracking-wide">
+                Flowsites — service operated by Greyo AI company.
+              </p>
             </div>
 
             <div className="w-full h-px bg-white/8 mb-7" />
 
-            <ul className="space-y-4 mb-8">
+            <ul className="space-y-4 mb-3">
               {premiumPlusFeatures.map((f) => (
                 <li key={f.text} className="flex items-center gap-3 text-sm">
                   <div className="w-5 h-5 rounded-full bg-white/8 flex items-center justify-center shrink-0">
@@ -241,14 +257,6 @@ export default function PricingPage({ onHome, onGallery, onGetStarted, session, 
                 </li>
               ))}
             </ul>
-
-            <button
-              onClick={() => handleSubscribe("premium+")}
-              disabled={loading !== null}
-              className="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-full bg-white text-[#070707] text-sm font-semibold hover:bg-white/90 transition-colors disabled:opacity-50"
-            >
-              {loading === "premium+" ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Subscribe <ArrowRight className="w-3.5 h-3.5" /></>}
-            </button>
           </motion.div>
         </div>
 
@@ -265,10 +273,6 @@ export default function PricingPage({ onHome, onGallery, onGetStarted, session, 
             <span>Subscription activated! Welcome to Flowsites Pro.</span>
           </div>
         )}
-
-        <p className="text-center text-xs text-white/30 mt-8 font-body tracking-wide">
-          Flowsites — service operated by Greyo AI company.
-        </p>
 
       </main>
     </div>
