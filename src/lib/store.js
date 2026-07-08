@@ -220,13 +220,11 @@ export async function getUserProfile(userId) {
 export async function createUserProfile(userId) {
   const { data, error } = await supabase
     .from("user_profiles")
-    .insert({ id: userId, plan: "free" })
+    .upsert({ id: userId, plan: "free" })
     .select()
     .single();
   if (error) {
-    // Conflict = already exists, that's fine
-    if (error.code === "23505") return null;
-    console.error("Error creating user profile:", error);
+    console.error("Error creating/checking user profile:", error);
     return null;
   }
   return data;

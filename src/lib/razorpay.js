@@ -1,4 +1,4 @@
-const SUPABASE_FUNCTIONS_URL = "https://gkwkgnycjocvxyglnzrq.supabase.co/functions/v1";
+import { supabase } from "./supabase.js";
 
 const PLAN_IDS = {
   premium: {
@@ -21,33 +21,25 @@ export async function createSubscription(planKey, billingCycle, userEmail) {
 
   const plan_name = planKey === "premium" ? "Premium" : "Premium+";
 
-  const res = await fetch(`${SUPABASE_FUNCTIONS_URL}/create-subscription`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
+  const { data, error } = await supabase.functions.invoke("create-subscription", {
+    body: {
       plan_id,
       plan_name,
       billing_cycle: billingCycle,
       user_email: userEmail,
-    }),
+    },
   });
 
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || "Failed to create subscription");
-
+  if (error) throw new Error(error.message || "Failed to create subscription");
   return data;
 }
 
 export async function verifyPayment(payload) {
-  const res = await fetch(`${SUPABASE_FUNCTIONS_URL}/verify-payment`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+  const { data, error } = await supabase.functions.invoke("verify-payment", {
+    body: payload,
   });
 
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || "Payment verification failed");
-
+  if (error) throw new Error(error.message || "Payment verification failed");
   return data;
 }
 
