@@ -167,12 +167,12 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
           isHorizontal ? "shrink-0 w-[280px] sm:w-[320px] snap-start" : ""
         }`}
       >
-        {/* Image Area — aligned uniformly to aspect ratio */}
-        <div className="relative aspect-[16/10] overflow-hidden bg-[#0d0d0f] isolate">
+        {/* Image Area — aligned uniformly to aspect ratio, showing full original media without crop */}
+        <div className="relative aspect-[16/10] overflow-hidden bg-[#0d0d0f] isolate flex items-center justify-center">
           {template.video ? (
             <video
               src={template.video}
-              className="w-full h-full object-cover object-top block transition-opacity duration-500 group-hover:opacity-90"
+              className="w-full h-full object-contain block transition-opacity duration-500 group-hover:opacity-90"
               loading="lazy"
               autoPlay
               loop
@@ -185,7 +185,7 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
             <img
               src={template.image}
               alt={template.title}
-              className="w-full h-full object-cover object-top block transition-opacity duration-500 group-hover:opacity-90"
+              className="w-full h-full object-contain block transition-opacity duration-500 group-hover:opacity-90"
               onLoad={() => handleMediaLoaded(template.id)}
               loading="lazy"
             />
