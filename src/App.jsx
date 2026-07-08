@@ -54,6 +54,8 @@ export default function App() {
     return slugToView(path);
   })
   const [session, setSession] = useState(null)
+  const [pendingCopyTemplateId, setPendingCopyTemplateId] = useState(null);
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
@@ -63,6 +65,16 @@ export default function App() {
     });
     return () => listener.subscription.unsubscribe();
   }, []);
+
+  function handleAuthSuccess() {
+    setView("gallery");
+    // pendingCopyTemplateId is already set — Gallery will auto-copy on mount
+  }
+
+  function handleAuthRequired(templateId) {
+    setPendingCopyTemplateId(templateId);
+    setView("auth");
+  }
 
   useEffect(() => {
     localStorage.setItem("flowsites_view", view);
@@ -88,7 +100,7 @@ export default function App() {
     }
     return (
       <>
-        <Auth onBack={() => setView("landing")} onSuccess={() => setView("gallery")} />
+        <Auth onBack={() => setView("landing")} onSuccess={handleAuthSuccess} />
         <PremiumCursor />
       </>
     )
@@ -97,7 +109,14 @@ export default function App() {
   if (view === "gallery") {
     return (
       <>
-        <Gallery onAdminAuth={() => setView("admin-auth")} onHome={() => setView("landing")} />
+        <Gallery 
+          onAdminAuth={() => setView("admin-auth")} 
+          onHome={() => setView("landing")} 
+          session={session}
+          onAuthRequired={handleAuthRequired}
+          pendingCopyTemplateId={pendingCopyTemplateId}
+          onClearPendingCopy={() => setPendingCopyTemplateId(null)}
+        />
         <PremiumCursor />
       </>
     )

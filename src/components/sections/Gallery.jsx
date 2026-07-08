@@ -10,6 +10,7 @@ import {
   Sparkles,
   Filter,
   Play,
+  Lock,
 } from "lucide-react";
 import { getPublishedTemplates, incrementLikes } from "../../lib/store";
 
@@ -25,7 +26,7 @@ function formatLikes(value) {
   return value + "";
 }
 
-export default function Gallery({ onAdminAuth, onHome }) {
+export default function Gallery({ onAdminAuth, onHome, session, onAuthRequired, pendingCopyTemplateId, onClearPendingCopy }) {
   const [templates, setTemplates] = useState([]);
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
@@ -95,12 +96,28 @@ export default function Gallery({ onAdminAuth, onHome }) {
   const hasActiveFilters = selectedCategory !== "All" || selectedType !== "All";
 
   function handleCopy(template) {
+    // Gate behind authentication
+    if (!session) {
+      onAuthRequired && onAuthRequired(template.id);
+      return;
+    }
     const prompt = template.prompt || `Build a premium ${template.title.toLowerCase()} website using React, Tailwind CSS, and Framer Motion. Use a dark aesthetic, glassmorphism cards, smooth scroll animations, and responsive layouts.`;
     navigator.clipboard.writeText(prompt).then(() => {
       setCopiedId(template.id);
       setTimeout(() => setCopiedId(null), 1800);
     });
   }
+
+  // After successful auth, auto-copy the deferred template
+  useEffect(() => {
+    if (!pendingCopyTemplateId || !session || templates.length === 0) return;
+    const template = templates.find((t) => t.id === pendingCopyTemplateId);
+    if (template) {
+      handleCopy(template);
+      onClearPendingCopy && onClearPendingCopy();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingCopyTemplateId, session, templates]);
 
   function handleMediaLoaded(id) {
     setLoadedIds((prev) => {
@@ -213,14 +230,19 @@ export default function Gallery({ onAdminAuth, onHome }) {
             <button
               onClick={() => handleCopy(template)}
               className="lg-pill shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white/60 hover:text-white transition-colors"
+              title={session ? "Copy prompt" : "Sign in to copy"}
             >
               {copiedId === template.id ? (
                 <>
                   <Check className="w-3.5 h-3.5 text-[#34d399]" /> Copied
                 </>
-              ) : (
+              ) : session ? (
                 <>
                   <Copy className="w-3.5 h-3.5" /> Copy
+                </>
+              ) : (
+                <>
+                  <Lock className="w-3.5 h-3.5" /> Copy
                 </>
               )}
             </button>
@@ -533,11 +555,14 @@ export default function Gallery({ onAdminAuth, onHome }) {
                 <button
                   onClick={() => handleCopy(previewTemplate)}
                   className="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-full bg-white text-[#070707] text-sm font-semibold hover:bg-white/90 transition-colors shadow-[0_8px_24px_-8px_rgba(255,255,255,0.2)]"
+                  title={session ? "Copy full prompt" : "Sign in to copy"}
                 >
                   {copiedId === previewTemplate.id ? (
                     <><Check className="w-4 h-4 text-[#34d399]" /> Copied</>
-                  ) : (
+                  ) : session ? (
                     <><Copy className="w-4 h-4" /> Copy full prompt</>
+                  ) : (
+                    <><Lock className="w-4 h-4" /> Sign in to copy</>
                   )}
                 </button>
 
