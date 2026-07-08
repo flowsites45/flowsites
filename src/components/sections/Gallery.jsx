@@ -172,7 +172,7 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
           {template.video ? (
             <video
               src={template.video}
-              className="w-full aspect-video object-cover block transition-opacity duration-500 group-hover:opacity-90"
+              className="w-full h-auto block transition-opacity duration-500 group-hover:opacity-90"
               loading="lazy"
               autoPlay
               loop
@@ -636,12 +636,12 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
               </div>
 
               {/* Left Content — Preview */}
-              <div className={`flex-1 relative bg-[#070707] overflow-hidden order-1 md:order-1 ${previewTemplate.video ? "aspect-video" : "min-h-[240px] md:min-h-0"}`}>
+              <div className="flex-1 relative bg-[#070707] overflow-hidden order-1 md:order-1 flex items-center justify-center">
 
                 {previewTemplate.video ? (
                   <video
                     src={previewTemplate.video}
-                    className="w-full h-full object-cover"
+                    className="w-full h-auto max-h-[80vh] block object-contain"
                     autoPlay
                     muted
                     loop
@@ -651,7 +651,7 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
                   <img
                     src={previewTemplate.image}
                     alt={previewTemplate.title}
-                    className="w-full h-full object-cover"
+                    className="w-full h-auto max-h-[80vh] block object-contain"
                   />
                 )}
               </div>

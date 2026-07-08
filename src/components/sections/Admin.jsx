@@ -527,11 +527,11 @@ export default function Admin({ onBack, onViewGallery, onLogout }) {
                 {previewMode ? (
                   /* Preview Mode */
                   <div className="p-6">
-                    <div className={`lg-prompt-box rounded-xl overflow-hidden mb-4 relative bg-[#0d0d0f] flex items-center justify-center ${form.video ? "w-full aspect-video" : ""}`}>
+                    <div className="lg-prompt-box rounded-xl overflow-hidden mb-4 relative bg-[#0d0d0f] flex items-center justify-center">
                       {form.video ? (
                         <video
                           src={form.video}
-                          className="w-full h-full object-cover block"
+                          className="w-full h-auto max-h-[50vh] block object-contain"
                           autoPlay
                           muted
                           loop
@@ -699,10 +699,10 @@ export default function Admin({ onBack, onViewGallery, onLogout }) {
                           )}
                         </div>
                         {form.video && (
-                          <div className="lg-prompt-box rounded-xl overflow-hidden aspect-video max-w-sm">
+                          <div className="lg-prompt-box rounded-xl overflow-hidden max-w-sm">
                             <video
                               src={form.video}
-                              className="w-full h-full object-cover"
+                              className="w-full h-auto block object-contain"
                               controls
                               muted
                               playsInline
