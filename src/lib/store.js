@@ -187,13 +187,16 @@ export async function saveTopLayouts(layouts) {
 }
 
 export async function saveTemplatesOrder(templates) {
-  const updates = templates.map((t, idx) => ({
-    id: t.id,
-    position: idx,
-  }));
-  const { error } = await supabase.from("templates").upsert(updates);
-  if (error) {
-    console.error("Error saving templates order:", error);
+  const updates = templates.map((t, idx) =>
+    supabase
+      .from("templates")
+      .update({ position: idx })
+      .eq("id", t.id)
+  );
+  const results = await Promise.all(updates);
+  const failed = results.find((r) => r.error);
+  if (failed) {
+    console.error("Error saving templates order:", failed.error);
     return false;
   }
   return true;
