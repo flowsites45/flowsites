@@ -11,7 +11,7 @@ import {
   Filter,
   Play,
 } from "lucide-react";
-import { getPublishedTemplates, incrementLikes } from "../../lib/store";
+import { getPublishedTemplates, incrementLikes, getTopLayouts } from "../../lib/store";
 
 const categories = ["All", "Hero Section", "Landing Page", "Portfolio", "Dashboard", "Agency", "Ecommerce"];
 const backgroundCategory = "Background Assets";
@@ -27,6 +27,7 @@ function formatLikes(value) {
 
 export default function Gallery({ onAdminAuth, onHome }) {
   const [templates, setTemplates] = useState([]);
+  const [topLayouts, setTopLayouts] = useState([]);
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedType, setSelectedType] = useState("All");
@@ -41,8 +42,11 @@ export default function Gallery({ onAdminAuth, onHome }) {
 
   useEffect(() => {
     let mounted = true;
-    getPublishedTemplates().then((data) => {
-      if (mounted) setTemplates(data);
+    Promise.all([getPublishedTemplates(), getTopLayouts()]).then(([templatesData, layoutsData]) => {
+      if (mounted) {
+        setTemplates(templatesData);
+        setTopLayouts(layoutsData);
+      }
     });
     return () => { mounted = false; };
   }, []);
@@ -124,6 +128,108 @@ export default function Gallery({ onAdminAuth, onHome }) {
     }
   }
 
+  function renderTemplateCard(template, isHorizontal = false) {
+    const isLiked = liked.has(template.id);
+    const displayLikes = isLiked ? template.likes + 1 : template.likes;
+    return (
+      <motion.div
+        key={template.id}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+        className={`lg-card group relative rounded-2xl overflow-hidden ${
+          isHorizontal ? "shrink-0 w-[280px] sm:w-[320px] snap-start" : ""
+        }`}
+      >
+        {/* Image Area — responsive to original aspect ratio */}
+        <div className={`relative overflow-hidden bg-[#0d0d0f] isolate ${loadedIds.has(template.id) ? "" : "min-h-[200px]"}`}>
+          {template.video ? (
+            <video
+              src={template.video}
+              className="w-full aspect-video object-cover block transition-opacity duration-500 group-hover:opacity-90"
+              loading="lazy"
+              autoPlay
+              loop
+              muted
+              playsInline
+              preload="metadata"
+              onLoadedData={() => handleMediaLoaded(template.id)}
+            />
+          ) : (
+            <img
+              src={template.image}
+              alt={template.title}
+              className="w-full h-auto block transition-opacity duration-500 group-hover:opacity-90"
+              onLoad={() => handleMediaLoaded(template.id)}
+              loading="lazy"
+            />
+          )}
+          {/* Overlay gradient */}
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0d0d0f] via-transparent to-transparent opacity-60 group-hover:opacity-80 transition-opacity duration-500" />
+
+          {/* Like badge — hidden by default, shown on hover */}
+          <button
+            onClick={(e) => toggleLike(e, template.id)}
+            className="lg-badge absolute top-3 right-3 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+          >
+            <Heart
+              className={`w-3.5 h-3.5 transition-colors ${
+                isLiked ? "fill-[#f87171] text-[#f87171]" : "text-white/70"
+              }`}
+            />
+            <span className={isLiked ? "text-[#f87171]" : "text-white/80"}>
+              {formatLikes(displayLikes)}
+            </span>
+          </button>
+
+          {/* Hover preview button — Premium Liquid Glass */}
+          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            <button
+              onClick={() => setPreviewTemplate(template)}
+              className="relative flex items-center gap-2 px-6 py-3 rounded-full bg-white/15 backdrop-blur-md border border-white/30 border-t-white/50 text-white text-sm font-medium shadow-[0_8px_32px_-4px_rgba(0,0,0,0.3),inset_0_1px_0_0_rgba(255,255,255,0.4),inset_0_-1px_0_0_rgba(255,255,255,0.1)] overflow-hidden"
+            >
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/60 to-transparent" />
+              {template.video ? (
+                <>
+                  <Play className="w-4 h-4 fill-white/90 text-white/90" /> Play Preview
+                </>
+              ) : (
+                "Preview"
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Card Footer */}
+        <div className="p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h3 className="font-display text-lg text-white leading-tight mb-1 truncate">
+                {template.title}
+              </h3>
+              <p className="text-xs text-white/40 font-medium">{template.category}</p>
+            </div>
+            <button
+              onClick={() => handleCopy(template)}
+              className="lg-pill shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white/60 hover:text-white transition-colors"
+            >
+              {copiedId === template.id ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-[#34d399]" /> Copied
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5" /> Copy
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+
   return (
     <div
       className="min-h-screen relative text-[#f4f4f5] font-body selection:bg-white/20 overflow-x-hidden"
@@ -139,11 +245,8 @@ export default function Gallery({ onAdminAuth, onHome }) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
-            <button onClick={onHome} className="flex items-center gap-2.5 cursor-pointer group">
-              <div className="w-9 h-9 rounded-xl lg-subtle flex items-center justify-center">
-                <Sparkles className="w-4 h-4 text-white/80" />
-              </div>
-              <span className="font-display text-xl tracking-tight text-white group-hover:text-white/80 transition-colors">Flowsites</span>
+            <button onClick={onHome} className="text-xl font-semibold tracking-tight text-white flex items-center gap-1.5 justify-self-start cursor-pointer hover:text-white/80 transition-colors">
+              <span>✦ Flowsites</span>
             </button>
 
             {/* Center: spacer */}
@@ -333,11 +436,41 @@ export default function Gallery({ onAdminAuth, onHome }) {
           )}
         </div>
 
+        {/* Top Templates Showcase Section */}
+        {selectedCategory === "All" && selectedType === "All" && search === "" && topLayouts.length > 0 && (
+          <div className="mb-14 space-y-10">
+            {topLayouts.map((row) => {
+              const rowTemplates = (row.template_ids || [])
+                .map((id) => templates.find((t) => t.id === id))
+                .filter((t) => t && t.published);
+
+              if (rowTemplates.length === 0) return null;
+
+              return (
+                <div key={row.id} className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h2 className="font-display text-2xl md:text-3xl text-white tracking-tight">✦ {row.title}</h2>
+                  </div>
+                  {/* Horizontal Scroll Wrapper */}
+                  <div className="flex overflow-x-auto gap-5 pb-5 scrollbar-none snap-x snap-mandatory lg-scroll">
+                    {rowTemplates.map((template) => renderTemplateCard(template, true))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         {/* Results count */}
-        <div className="flex items-center justify-between mb-6">
-          <p className="text-sm text-white/40">
-            Showing <span className="text-white font-medium">{filtered.length}</span> prompts
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pt-4 border-t border-white/5">
+          <div>
+            {selectedCategory === "All" && selectedType === "All" && search === "" && topLayouts.length > 0 && (
+              <h2 className="font-display text-xl text-white/90 mb-1">Browse All Templates</h2>
+            )}
+            <p className="text-sm text-white/40">
+              Showing <span className="text-white font-medium">{filtered.length}</span> prompts
+            </p>
+          </div>
         </div>
 
         {/* Template Grid */}
@@ -345,105 +478,7 @@ export default function Gallery({ onAdminAuth, onHome }) {
           className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 gap-5"
         >
           <AnimatePresence>
-            {filtered.map((template) => {
-              const isLiked = liked.has(template.id);
-              const displayLikes = isLiked ? template.likes + 1 : template.likes;
-              return (
-                <motion.div
-                  key={template.id}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-                  className="lg-card group relative rounded-2xl overflow-hidden"
-                >
-                  {/* Image Area — responsive to original aspect ratio */}
-                  <div className={`relative overflow-hidden bg-[#0d0d0f] isolate ${loadedIds.has(template.id) ? "" : "min-h-[200px]"}`}>
-                    {template.video ? (
-                      <video
-                        src={template.video}
-                        className="w-full aspect-video object-cover block transition-opacity duration-500 group-hover:opacity-90"
-                        loading="lazy"
-                        autoPlay
-                        loop
-                        muted
-                        playsInline
-                        preload="metadata"
-                        onLoadedData={() => handleMediaLoaded(template.id)}
-                      />
-                    ) : (
-                      <img
-                        src={template.image}
-                        alt={template.title}
-                        className="w-full h-auto block transition-opacity duration-500 group-hover:opacity-90"
-                        onLoad={() => handleMediaLoaded(template.id)}
-                        loading="lazy"
-                      />
-                    )}
-                    {/* Overlay gradient */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#0d0d0f] via-transparent to-transparent opacity-60 group-hover:opacity-80 transition-opacity duration-500" />
-
-                    {/* Like badge — hidden by default, shown on hover */}
-                    <button
-                      onClick={(e) => toggleLike(e, template.id)}
-                      className="lg-badge absolute top-3 right-3 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                    >
-                      <Heart
-                        className={`w-3.5 h-3.5 transition-colors ${
-                          isLiked ? "fill-[#f87171] text-[#f87171]" : "text-white/70"
-                        }`}
-                      />
-                      <span className={isLiked ? "text-[#f87171]" : "text-white/80"}>
-                        {formatLikes(displayLikes)}
-                      </span>
-                    </button>
-
-                    {/* Hover preview button — Premium Liquid Glass */}
-                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                      <button
-                        onClick={() => setPreviewTemplate(template)}
-                        className="relative flex items-center gap-2 px-6 py-3 rounded-full bg-white/15 backdrop-blur-md border border-white/30 border-t-white/50 text-white text-sm font-medium shadow-[0_8px_32px_-4px_rgba(0,0,0,0.3),inset_0_1px_0_0_rgba(255,255,255,0.4),inset_0_-1px_0_0_rgba(255,255,255,0.1)] overflow-hidden"
-                      >
-                        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/60 to-transparent" />
-                        {template.video ? (
-                          <>
-                            <Play className="w-4 h-4 fill-white/90 text-white/90" /> Play Preview
-                          </>
-                        ) : (
-                          "Preview"
-                        )}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Card Footer */}
-                  <div className="p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <h3 className="font-display text-lg text-white leading-tight mb-1 truncate">
-                          {template.title}
-                        </h3>
-                        <p className="text-xs text-white/40 font-medium">{template.category}</p>
-                      </div>
-                      <button
-                        onClick={() => handleCopy(template)}
-                        className="lg-pill shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white/60 hover:text-white transition-colors"
-                      >
-                        {copiedId === template.id ? (
-                          <>
-                            <Check className="w-3.5 h-3.5 text-[#34d399]" /> Copied
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="w-3.5 h-3.5" /> Copy
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                </motion.div>
-              );
-            })}
+            {filtered.map((template) => renderTemplateCard(template, false))}
           </AnimatePresence>
         </motion.div>
 
@@ -487,26 +522,43 @@ export default function Gallery({ onAdminAuth, onHome }) {
               exit={{ opacity: 0 }}
               transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
               onClick={(e) => e.stopPropagation()}
-              className="lg-modal rounded-[2rem] w-full max-w-5xl max-h-[90vh] overflow-y-auto lg-scroll flex flex-col md:flex-row bg-[#121215]/95 border border-white/10 shadow-[0_32px_80px_-20px_rgba(0,0,0,0.5)]"
+              className="lg-modal relative rounded-[2rem] w-full max-w-5xl max-h-[90vh] overflow-y-auto lg-scroll flex flex-col md:flex-row bg-[#121215]/95 border border-white/10 shadow-[0_32px_80px_-20px_rgba(0,0,0,0.5)]"
             >
+              {/* Close Button — Top Right of Entire Modal */}
+              <button
+                onClick={() => setPreviewTemplate(null)}
+                className="absolute top-6 right-6 z-50 flex items-center justify-center w-9 h-9 rounded-full bg-gradient-to-b from-white/25 to-white/10 border border-white/30 border-t-white/50 text-white shadow-[0_8px_24px_-4px_rgba(0,0,0,0.3),inset_0_1px_0_0_rgba(255,255,255,0.4)] hover:from-white/35 hover:to-white/15 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
               {/* Right Sidebar — Template Info */}
               <div className="w-full md:w-[320px] shrink-0 p-6 md:p-8 border-b md:border-b-0 md:border-l border-white/8 flex flex-col order-2 md:order-2">
-                <div className="flex items-center justify-between md:justify-start mb-6">
+                <div className="flex items-center justify-between md:justify-start mb-6 pr-8">
                   <h3 className="font-display text-2xl md:text-3xl text-white leading-tight">{previewTemplate.title}</h3>
-                  <button
-                    onClick={() => setPreviewTemplate(null)}
-                    className="md:hidden flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-b from-white/20 to-white/10 border border-white/20 text-white/70 hover:text-white transition-colors"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
                 </div>
 
                 <p className="text-sm text-white/40 mb-2">{previewTemplate.category}</p>
 
-                <div className="flex items-center gap-2 text-white/60 text-sm mb-8">
-                  <Heart className="w-4 h-4" />
-                  <span>{formatLikes(previewTemplate.likes)} likes</span>
-                </div>
+                {(() => {
+                  const isTemplateLiked = liked.has(previewTemplate.id);
+                  const displayPreviewLikes = isTemplateLiked ? previewTemplate.likes + 1 : previewTemplate.likes;
+                  return (
+                    <button
+                      onClick={(e) => toggleLike(e, previewTemplate.id)}
+                      className="flex items-center gap-2 text-white/60 hover:text-white text-sm mb-8 transition-colors cursor-pointer group w-fit"
+                    >
+                      <Heart
+                        className={`w-4 h-4 transition-colors group-hover:scale-110 duration-200 ${
+                          isTemplateLiked ? "fill-[#f87171] text-[#f87171]" : "text-white/60"
+                        }`}
+                      />
+                      <span className={isTemplateLiked ? "text-[#f87171] font-medium" : ""}>
+                        {formatLikes(displayPreviewLikes)} likes
+                      </span>
+                    </button>
+                  );
+                })()}
 
                 <button
                   onClick={() => handleCopy(previewTemplate)}
@@ -523,12 +575,6 @@ export default function Gallery({ onAdminAuth, onHome }) {
 
               {/* Left Content — Preview */}
               <div className={`flex-1 relative bg-[#070707] overflow-hidden order-1 md:order-1 ${previewTemplate.video ? "aspect-video" : "min-h-[240px] md:min-h-0"}`}>
-                <button
-                  onClick={() => setPreviewTemplate(null)}
-                  className="hidden md:flex absolute top-4 right-4 z-10 items-center justify-center w-9 h-9 rounded-full bg-gradient-to-b from-white/25 to-white/10 border border-white/30 border-t-white/50 text-white shadow-[0_8px_24px_-4px_rgba(0,0,0,0.3),inset_0_1px_0_0_rgba(255,255,255,0.4)] hover:from-white/35 hover:to-white/15 transition-colors"
-                >
-                  <X className="w-4 h-4" />
-                </button>
 
                 {previewTemplate.video ? (
                   <video

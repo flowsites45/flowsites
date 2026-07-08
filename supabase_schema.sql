@@ -105,3 +105,29 @@ create policy "Authenticated can delete template assets"
   on storage.objects for delete
   to authenticated
   using (bucket_id = 'templates');
+
+-- ── Top Layouts Table (Row Configuration) ──────────────────────
+create table if not exists public.top_layouts (
+  id           bigint generated always as identity primary key,
+  title        text not null,
+  template_ids bigint[] not null default '{}',
+  position     integer not null default 0,
+  created_at   timestamptz default now(),
+  updated_at   timestamptz default now()
+);
+
+-- Enable RLS
+alter table public.top_layouts enable row level security;
+
+-- RLS Policies
+drop policy if exists "Public can view top layouts" on public.top_layouts;
+create policy "Public can view top layouts"
+  on public.top_layouts for select
+  using (true);
+
+drop policy if exists "Authenticated can manage top layouts" on public.top_layouts;
+create policy "Authenticated can manage top layouts"
+  on public.top_layouts for all
+  to authenticated
+  using (true)
+  with check (true);

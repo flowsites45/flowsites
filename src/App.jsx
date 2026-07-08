@@ -168,7 +168,7 @@ export default function App() {
         
         {/* Floating Glass Navbar Capsule */}
         <div className="px-6 md:px-12 lg:px-20 py-4 relative z-50">
-          <nav className="grid grid-cols-2 md:grid-cols-3 items-center px-6 py-3.5 bg-gradient-to-b from-white/25 to-white/10 border border-white/20 border-t-white/40 shadow-[0_8px_32px_0_rgba(0,0,0,0.15),inset_0_1px_0_0_rgba(255,255,255,0.2)] rounded-full font-body">
+          <nav className="grid grid-cols-2 md:grid-cols-3 items-center px-6 py-3.5 bg-white/[0.12] backdrop-blur-xl border border-white/[0.18] border-t-white/[0.35] shadow-[0_12px_40px_0_rgba(0,0,0,0.12),inset_0_1px_0_0_rgba(255,255,255,0.25)] rounded-full font-body">
             {/* Left: Logo */}
             <div className="text-xl font-semibold tracking-tight text-foreground flex items-center gap-1.5 justify-self-start">
               <span>✦ Flowsites</span>

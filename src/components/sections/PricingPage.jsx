@@ -87,11 +87,8 @@ export default function PricingPage({ onHome, onGallery, onGetStarted }) {
       <header className="lg-header sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="flex items-center justify-between h-16">
-            <button onClick={onHome} className="flex items-center gap-2.5 cursor-pointer group">
-              <div className="w-9 h-9 rounded-xl lg-subtle flex items-center justify-center">
-                <Sparkles className="w-4 h-4 text-white/80" />
-              </div>
-              <span className="font-display text-xl tracking-tight text-white group-hover:text-white/80 transition-colors">Flowsites</span>
+            <button onClick={onHome} className="text-xl font-semibold tracking-tight text-white flex items-center gap-1.5 justify-self-start cursor-pointer hover:text-white/80 transition-colors">
+              <span>✦ Flowsites</span>
             </button>
             <div className="flex items-center gap-2">
               <button onClick={onGallery} className="lg-pill px-4 py-2 rounded-full text-sm font-medium text-white/70 hover:text-white transition-colors">
