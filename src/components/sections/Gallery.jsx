@@ -503,12 +503,6 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
           )}
         </div>
 
-        {/* Results count */}
-        <div className="flex items-center justify-between mb-6">
-          <p className="text-sm text-white/40">
-            Showing <span className="text-white font-medium">{filtered.length}</span> prompts
-          </p>
-        </div>
 
         {/* Template Grid */}
         <motion.div
