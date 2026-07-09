@@ -562,7 +562,6 @@ export default function App() {
           </motion.div>
         </section>
 
-        <Pricing />
         <FAQ />
       </div>
 
