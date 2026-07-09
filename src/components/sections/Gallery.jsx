@@ -239,10 +239,11 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
             {(() => {
               const accessible = !session || canCopy(template, userProfile);
               const badgeLabel = requiredPlanLabel(template.type);
+              const isBgAsset = template.category === backgroundCategory;
               if (copiedId === template.id) {
                 return (
                   <button className="lg-pill shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-[#34d399]">
-                    <Check className="w-3.5 h-3.5" /> Copied
+                    <Check className="w-3.5 h-3.5" /> {isBgAsset ? "Copied URL" : "Copied"}
                   </button>
                 );
               }
@@ -267,7 +268,7 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
                   onClick={() => handleCopy(template)}
                   className="lg-pill shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white/60 hover:text-white transition-colors"
                 >
-                  <Copy className="w-3.5 h-3.5" /> Copy
+                  <Copy className="w-3.5 h-3.5" /> {isBgAsset ? "Copy URL" : "Copy"}
                 </button>
               );
             })()}
@@ -511,7 +512,7 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
 
         {/* Template Grid */}
         <motion.div
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 gap-5"
+          className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-3 gap-6"
         >
           <AnimatePresence>
             {filtered.map((template) => renderTemplateCard(template, false))}
@@ -600,10 +601,11 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
                 {(() => {
                   const accessible = !session || canCopy(previewTemplate, userProfile);
                   const badgeLabel = requiredPlanLabel(previewTemplate.type);
+                  const isBgAsset = previewTemplate.category === backgroundCategory;
                   if (copiedId === previewTemplate.id) {
                     return (
                       <button className="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-full bg-white text-[#070707] text-sm font-semibold transition-colors shadow-[0_8px_24px_-8px_rgba(255,255,255,0.2)]">
-                        <Check className="w-4 h-4 text-[#34d399]" /> Copied
+                        <Check className="w-4 h-4 text-[#34d399]" /> {isBgAsset ? "Copied URL" : "Copied"}
                       </button>
                     );
                   }
@@ -628,7 +630,7 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
                       onClick={() => handleCopy(previewTemplate)}
                       className="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-full bg-white text-[#070707] text-sm font-semibold hover:bg-white/90 transition-colors shadow-[0_8px_24px_-8px_rgba(255,255,255,0.2)]"
                     >
-                      <Copy className="w-4 h-4" /> Copy full prompt
+                      <Copy className="w-4 h-4" /> {isBgAsset ? "Copy URL" : "Copy full prompt"}
                     </button>
                   );
                 })()}

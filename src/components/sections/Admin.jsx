@@ -153,22 +153,21 @@ export default function Admin({ onBack, onViewGallery, onLogout }) {
   }
 
   async function handleSave() {
-    if (!form.title.trim()) {
-      showToast("Title is required");
-      return;
-    }
-    if (!form.image.trim()) {
-      showToast("Thumbnail image URL is required");
-      return;
-    }
+    const finalForm = {
+      ...form,
+      title: form.title.trim() || "Untitled",
+      image: form.image.trim() || "",
+      video: form.video.trim() || "",
+      prompt: form.prompt.trim() || "",
+    };
 
     setSaving(true);
     let result;
     if (editingId) {
-      result = await updateTemplate(editingId, form);
+      result = await updateTemplate(editingId, finalForm);
       showToast(result ? "Template updated successfully" : "Failed to update template");
     } else {
-      result = await addTemplate(form);
+      result = await addTemplate(finalForm);
       showToast(result ? "Template created successfully" : "Failed to create template");
     }
     setSaving(false);
