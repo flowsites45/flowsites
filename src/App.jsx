@@ -268,7 +268,7 @@ export default function App() {
               transition={{ duration: 0.5 }}
               className="inline-flex items-center gap-1.5 rounded-full border border-white/20 border-t-white/40 bg-gradient-to-b from-white/25 to-white/10 px-4 py-1.5 text-sm text-foreground font-body mb-5 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.1),inset_0_1px_0_0_rgba(255,255,255,0.2)]"
             >
-              <span className="font-medium text-[13px]">✨ 30+ Premium AI Website Prompts • New Designs Every Week</span>
+              <span className="font-medium text-[13px]">✨ 100+ Premium AI Website Prompts • New Designs Everyday</span>
             </motion.div>
 
             <motion.h1
