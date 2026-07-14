@@ -17,7 +17,7 @@ import { getPublishedTemplates, incrementLikes } from "../../lib/store";
 import { canCopy, requiredPlanLabel } from "../../lib/access.js";
 import UserProfileMenu from "../UserProfileMenu.jsx";
 
-const categories = ["All", "Hero Section", "Landing Page", "Portfolio", "Dashboard", "Agency", "Ecommerce"];
+const categories = ["All", "Hero Section", "Landing Page"];
 const backgroundCategory = "Background Assets";
 const types = ["All", "Free", "Premium", "Premium Plus"];
 const sortOptions = ["Featured", "Popular", "Newest", "Liked"];
