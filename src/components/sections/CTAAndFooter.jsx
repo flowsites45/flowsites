@@ -95,7 +95,9 @@ export default function CTAAndFooter() {
                   </div>
                   <div>
                     <p className="text-xs text-foreground/50 font-medium">Email Us</p>
-                    <p className="font-semibold text-foreground">support@flowsites.ai</p>
+                    <a href="mailto:flowsites45@gmail.com" className="font-semibold text-foreground hover:text-violet-600 transition-colors">
+                      flowsites45@gmail.com
+                    </a>
                   </div>
                 </div>
 
