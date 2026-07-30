@@ -113,6 +113,19 @@ export default function App() {
     setPendingSubscribePlanId(null);
   }
 
+  function handleNavScroll(sectionId) {
+    if (view !== "landing") {
+      setView("landing");
+      setTimeout(() => {
+        const el = document.getElementById(sectionId);
+        if (el) el.scrollIntoView({ behavior: "smooth" });
+      }, 100);
+    } else {
+      const el = document.getElementById(sectionId);
+      if (el) el.scrollIntoView({ behavior: "smooth" });
+    }
+  }
+
   useEffect(() => {
     localStorage.setItem("flowsites_view", view);
     const slug = viewToSlug(view);
@@ -242,9 +255,9 @@ export default function App() {
             {/* Center (hidden on mobile): Nav Links */}
             <div className="hidden md:flex items-center justify-center gap-8 text-sm font-medium text-muted-foreground justify-self-center">
               <button onClick={() => setView("gallery")} className="hover:text-foreground transition-colors">Browse</button>
-              <a href="#" className="hover:text-foreground transition-colors">Features</a>
+              <button onClick={() => handleNavScroll("features")} className="hover:text-foreground transition-colors">Features</button>
               <button onClick={() => setView("pricing")} className="hover:text-foreground transition-colors">Pricing</button>
-              <a href="#" className="hover:text-foreground transition-colors">Contact</a>
+              <button onClick={() => handleNavScroll("contact")} className="hover:text-foreground transition-colors">Contact</button>
             </div>
 
             {/* Right: Auth Buttons */}
@@ -512,7 +525,7 @@ export default function App() {
         </section>
 
         {/* 8. MODERN AI COMPATIBILITY & WHO IT'S FOR */}
-        <section className="w-full max-w-6xl mx-auto px-6 py-24">
+        <section id="features" className="w-full max-w-6xl mx-auto px-6 py-24 scroll-mt-20">
           <motion.div variants={staggerContainer} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-100px" }} className="grid md:grid-cols-2 gap-8 md:gap-12">
             
             <motion.div variants={fadeSlideUp} className={`${glassCard} p-8 md:p-16 flex flex-col justify-center`}>

@@ -48,7 +48,7 @@ export default function CTAAndFooter() {
       </section>
 
       {/* Elegant Footer */}
-      <footer className="w-full border-t border-black/5 bg-[#f5f2ee]/80 pt-16 pb-8 px-6 relative z-10">
+      <footer id="contact" className="w-full border-t border-black/5 bg-[#f5f2ee]/80 pt-16 pb-8 px-6 relative z-10 scroll-mt-10">
         <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
           <div className="col-span-2 md:col-span-1">
             <div className="text-xl font-semibold tracking-tight text-foreground flex items-center gap-1.5 mb-4 font-body">
