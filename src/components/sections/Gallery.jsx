@@ -12,6 +12,7 @@ import {
   Play,
   Zap,
   Crown,
+  Loader2,
 } from "lucide-react";
 import { getPublishedTemplates, incrementLikes } from "../../lib/store";
 import { canCopy, requiredPlanLabel } from "../../lib/access.js";
@@ -31,6 +32,7 @@ function formatLikes(value) {
 
 export default function Gallery({ onAdminAuth, onHome, session, userProfile, onAuthRequired, onGoUnlimited, pendingCopyTemplateId, onClearPendingCopy, onLogout }) {
   const [templates, setTemplates] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedType, setSelectedType] = useState("All");
@@ -45,9 +47,11 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
 
   useEffect(() => {
     let mounted = true;
+    setLoading(true);
     getPublishedTemplates().then((data) => {
       if (mounted) {
         setTemplates(data);
+        setLoading(false);
       }
     });
     return () => { mounted = false; };
@@ -504,36 +508,53 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
         </div>
 
 
-        {/* Template Grid */}
-        <motion.div
-          className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-3 gap-6"
-        >
-          <AnimatePresence>
-            {filtered.map((template) => renderTemplateCard(template, false))}
-          </AnimatePresence>
-        </motion.div>
-
-        {/* Empty state */}
-        {filtered.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-24 text-center">
-            <div className="lg-glass w-16 h-16 rounded-2xl flex items-center justify-center mb-4">
-              <Filter className="w-7 h-7 text-white/30" />
+        {/* Loading / Grid / Empty state */}
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-28 text-center">
+            <div className="relative flex items-center justify-center mb-5">
+              <div className="absolute w-16 h-16 rounded-full bg-white/10 blur-xl animate-pulse" />
+              <div className="lg-glass w-14 h-14 rounded-2xl flex items-center justify-center border border-white/15 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+                <Loader2 className="w-6 h-6 text-white animate-spin" />
+              </div>
             </div>
-            <h3 className="font-display text-2xl text-white mb-2">No prompts found</h3>
-            <p className="text-sm text-white/40 max-w-sm">
-              Try adjusting your filters or search term to find what you're looking for.
+            <p className="text-sm font-medium text-white/60 tracking-wide animate-pulse">
+              Loading templates...
             </p>
-            <button
-              onClick={() => {
-                setSearch("");
-                setSelectedCategory("All");
-                setSelectedType("All");
-              }}
-              className="mt-6 px-5 py-2.5 rounded-full bg-white text-[#070707] text-sm font-medium hover:bg-white/90 transition-colors"
-            >
-              Clear all filters
-            </button>
           </div>
+        ) : (
+          <>
+            {/* Template Grid */}
+            <motion.div
+              className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-3 gap-6"
+            >
+              <AnimatePresence>
+                {filtered.map((template) => renderTemplateCard(template, false))}
+              </AnimatePresence>
+            </motion.div>
+
+            {/* Empty state */}
+            {filtered.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-24 text-center">
+                <div className="lg-glass w-16 h-16 rounded-2xl flex items-center justify-center mb-4">
+                  <Filter className="w-7 h-7 text-white/30" />
+                </div>
+                <h3 className="font-display text-2xl text-white mb-2">No prompts found</h3>
+                <p className="text-sm text-white/40 max-w-sm">
+                  Try adjusting your filters or search term to find what you're looking for.
+                </p>
+                <button
+                  onClick={() => {
+                    setSearch("");
+                    setSelectedCategory("All");
+                    setSelectedType("All");
+                  }}
+                  className="mt-6 px-5 py-2.5 rounded-full bg-white text-[#070707] text-sm font-medium hover:bg-white/90 transition-colors"
+                >
+                  Clear all filters
+                </button>
+              </div>
+            )}
+          </>
         )}
       </main>
 
