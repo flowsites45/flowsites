@@ -173,11 +173,32 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
       >
         {/* Image Area — aligned uniformly to aspect ratio, showing full original media without crop */}
         <div className="relative aspect-[16/10] overflow-hidden bg-[#0d0d0f] isolate flex items-center justify-center">
+          {/* Shimmer loading skeleton */}
+          {!loadedIds.has(template.id) && (
+            <div className="absolute inset-0 z-20 flex flex-col justify-between p-4 bg-gradient-to-br from-[#121215] to-[#0a0a0c]">
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full animate-shimmer" />
+              {template.image && (
+                <img
+                  src={template.image}
+                  alt={template.title}
+                  className="absolute inset-0 w-full h-full object-contain opacity-40 blur-[2px]"
+                />
+              )}
+              <div className="w-12 h-6 rounded-md bg-white/5 border border-white/5 relative z-10" />
+              <div className="space-y-2 relative z-10">
+                <div className="w-2/3 h-4 rounded-md bg-white/5" />
+                <div className="w-1/3 h-3 rounded-md bg-white/5" />
+              </div>
+            </div>
+          )}
+
           {template.video ? (
             <video
               src={template.video}
-              poster={template.image}
-              className="w-full h-full object-contain block transition-opacity duration-500 group-hover:opacity-90"
+              poster={template.image || undefined}
+              className={`w-full h-full object-contain block transition-all duration-700 group-hover:opacity-90 ${
+                loadedIds.has(template.id) ? "opacity-100 scale-100" : "opacity-0 scale-95"
+              }`}
               autoPlay
               loop
               muted
@@ -189,7 +210,9 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
             <img
               src={template.image}
               alt={template.title}
-              className="w-full h-full object-contain block transition-opacity duration-500 group-hover:opacity-90"
+              className={`w-full h-full object-contain block transition-all duration-700 group-hover:opacity-90 ${
+                loadedIds.has(template.id) ? "opacity-100 scale-100" : "opacity-0 scale-95"
+              }`}
               onLoad={() => handleMediaLoaded(template.id)}
               loading="lazy"
             />
