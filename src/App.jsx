@@ -239,9 +239,9 @@ export default function App() {
             playsInline
           />
           {/* Background Liquid Glow Blobs */}
-          <div className="absolute top-[10%] left-[5%] w-[450px] h-[450px] rounded-full bg-accent/20 blur-[130px]" />
-          <div className="absolute bottom-[-10%] right-[10%] w-[550px] h-[550px] rounded-full bg-indigo-500/15 blur-[140px]" />
-          <div className="absolute top-[40%] right-[20%] w-[350px] h-[350px] rounded-full bg-pink-500/10 blur-[110px]" />
+          <div className="absolute top-[10%] left-[5%] w-[300px] md:w-[450px] h-[300px] md:h-[450px] rounded-full bg-accent/20 blur-[80px] md:blur-[130px] transform-gpu pointer-events-none" />
+          <div className="absolute bottom-[-10%] right-[10%] w-[350px] md:w-[550px] h-[350px] md:h-[550px] rounded-full bg-indigo-500/15 blur-[90px] md:blur-[140px] transform-gpu pointer-events-none" />
+          <div className="absolute top-[40%] right-[20%] w-[250px] md:w-[350px] h-[250px] md:h-[350px] rounded-full bg-pink-500/10 blur-[70px] md:blur-[110px] transform-gpu pointer-events-none" />
         </div>
         
         {/* Floating Glass Navbar Capsule */}
@@ -319,12 +319,12 @@ export default function App() {
       <div className="relative z-10 flex flex-col items-center pb-24 w-full bg-[#f5f2ee] cosmic-grain">
         
         {/* Soft Pastel Ambient Lighting Blobs */}
-        <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden mix-blend-multiply opacity-60" style={{ contain: "layout style paint" }}>
-          <div className="absolute top-[5%] left-[5%] w-[600px] h-[600px] rounded-full bg-[#e8d5f0] blur-[140px]" />
-          <div className="absolute top-[25%] right-[5%] w-[500px] h-[500px] rounded-full bg-[#d5f0e8] blur-[130px]" />
-          <div className="absolute top-[45%] left-[15%] w-[700px] h-[700px] rounded-full bg-[#d4e4f0] blur-[150px]" />
-          <div className="absolute bottom-[20%] right-[10%] w-[600px] h-[600px] rounded-full bg-[#f0e0d4] blur-[140px]" />
-          <div className="absolute bottom-[5%] left-[20%] w-[500px] h-[500px] rounded-full bg-[#f0dce0] blur-[130px]" />
+        <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden mix-blend-multiply opacity-50 transform-gpu" style={{ contain: "layout style paint" }}>
+          <div className="absolute top-[5%] left-[5%] w-[350px] md:w-[600px] h-[350px] md:h-[600px] rounded-full bg-[#e8d5f0] blur-[75px] md:blur-[140px] transform-gpu" />
+          <div className="absolute top-[25%] right-[5%] w-[300px] md:w-[500px] h-[300px] md:h-[500px] rounded-full bg-[#d5f0e8] blur-[70px] md:blur-[130px] transform-gpu" />
+          <div className="absolute top-[45%] left-[15%] w-[400px] md:w-[700px] h-[400px] md:h-[700px] rounded-full bg-[#d4e4f0] blur-[80px] md:blur-[150px] transform-gpu" />
+          <div className="absolute bottom-[20%] right-[10%] w-[350px] md:w-[600px] h-[350px] md:h-[600px] rounded-full bg-[#f0e0d4] blur-[75px] md:blur-[140px] transform-gpu" />
+          <div className="absolute bottom-[5%] left-[20%] w-[300px] md:w-[500px] h-[300px] md:h-[500px] rounded-full bg-[#f0dce0] blur-[70px] md:blur-[130px] transform-gpu" />
         </div>
 
         {/* 1. LOGO CLOUD / INTEGRATIONS */}
