@@ -33,6 +33,7 @@ function formatLikes(value) {
 export default function Gallery({ onAdminAuth, onHome, session, userProfile, onAuthRequired, onGoUnlimited, pendingCopyTemplateId, onClearPendingCopy, onLogout }) {
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedType, setSelectedType] = useState("All");
@@ -46,6 +47,16 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
   const searchRef = useRef(null);
 
   useEffect(() => {
+    // Check if device supports touch interface for mobile-specific rendering performance
+    const checkTouch = () => {
+      setIsTouchDevice(
+        "ontouchstart" in window ||
+        navigator.maxTouchPoints > 0 ||
+        navigator.msMaxTouchPoints > 0
+      );
+    };
+    checkTouch();
+
     let mounted = true;
     setLoading(true);
     getPublishedTemplates().then((data) => {
@@ -192,7 +203,7 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
             </div>
           )}
 
-          {template.video ? (
+          {template.video && (!isTouchDevice || !template.image) ? (
             <video
               src={template.video}
               poster={template.image || undefined}
