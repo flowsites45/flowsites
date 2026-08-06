@@ -43,7 +43,6 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
   const [liked, setLiked] = useState(new Set());
   const [previewTemplate, setPreviewTemplate] = useState(null);
   const [loadedIds, setLoadedIds] = useState(new Set());
-  const [hoveredId, setHoveredId] = useState(null);
   const searchRef = useRef(null);
 
   useEffect(() => {
@@ -168,28 +167,29 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-        onMouseEnter={() => setHoveredId(template.id)}
-        onMouseLeave={() => setHoveredId(null)}
         className={`lg-card group relative rounded-2xl overflow-hidden ${
           isHorizontal ? "shrink-0 w-[280px] sm:w-[320px] snap-start" : ""
         }`}
       >
         {/* Image Area — aligned uniformly to aspect ratio, showing full original media without crop */}
         <div className="relative aspect-[16/10] overflow-hidden bg-[#0d0d0f] isolate flex items-center justify-center">
-          {template.video && hoveredId === template.id ? (
+          {template.video ? (
             <video
               src={template.video}
-              className="w-full h-full object-contain block transition-opacity duration-300"
+              poster={template.image}
+              className="w-full h-full object-contain block transition-opacity duration-500 group-hover:opacity-90"
               autoPlay
               loop
               muted
               playsInline
+              preload="auto"
+              onLoadedData={() => handleMediaLoaded(template.id)}
             />
           ) : (
             <img
               src={template.image}
               alt={template.title}
-              className="w-full h-full object-contain block transition-opacity duration-300 group-hover:scale-105"
+              className="w-full h-full object-contain block transition-opacity duration-500 group-hover:opacity-90"
               onLoad={() => handleMediaLoaded(template.id)}
               loading="lazy"
             />
@@ -658,11 +658,13 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
                 {previewTemplate.video ? (
                   <video
                     src={previewTemplate.video}
+                    poster={previewTemplate.image}
                     className="w-full h-auto max-h-[80vh] block object-contain"
                     autoPlay
                     muted
                     loop
                     playsInline
+                    preload="auto"
                   />
                 ) : (
                   <img
