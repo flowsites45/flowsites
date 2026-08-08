@@ -35,6 +35,7 @@ import {
 const categories = [
   "Hero Section",
   "Landing Page",
+  "UI Components",
   "Portfolio",
   "Dashboard",
   "Agency",

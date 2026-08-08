@@ -18,7 +18,7 @@ import { getPublishedTemplates, incrementLikes } from "../../lib/store";
 import { canCopy, requiredPlanLabel } from "../../lib/access.js";
 import UserProfileMenu from "../UserProfileMenu.jsx";
 
-const categories = ["All", "Hero Section", "Landing Page"];
+const categories = ["All", "Hero Section", "Landing Page", "UI Components"];
 const backgroundCategory = "Background Assets";
 const types = ["All", "Free", "Premium", "Premium Plus"];
 const sortOptions = ["Featured", "Popular", "Newest", "Liked"];
@@ -33,7 +33,6 @@ function formatLikes(value) {
 export default function Gallery({ onAdminAuth, onHome, session, userProfile, onAuthRequired, onGoUnlimited, pendingCopyTemplateId, onClearPendingCopy, onLogout }) {
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [isTouchDevice, setIsTouchDevice] = useState(false);
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedType, setSelectedType] = useState("All");
@@ -47,16 +46,6 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
   const searchRef = useRef(null);
 
   useEffect(() => {
-    // Check if device supports touch interface for mobile-specific rendering performance
-    const checkTouch = () => {
-      setIsTouchDevice(
-        "ontouchstart" in window ||
-        navigator.maxTouchPoints > 0 ||
-        navigator.msMaxTouchPoints > 0
-      );
-    };
-    checkTouch();
-
     let mounted = true;
     setLoading(true);
     getPublishedTemplates().then((data) => {
@@ -184,46 +173,23 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
       >
         {/* Image Area — aligned uniformly to aspect ratio, showing full original media without crop */}
         <div className="relative aspect-[16/10] overflow-hidden bg-[#0d0d0f] isolate flex items-center justify-center">
-          {/* Shimmer loading skeleton */}
-          {!loadedIds.has(template.id) && (
-            <div className="absolute inset-0 z-20 flex flex-col justify-between p-4 bg-gradient-to-br from-[#121215] to-[#0a0a0c]">
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full animate-shimmer" />
-              {template.image && (
-                <img
-                  src={template.image}
-                  alt={template.title}
-                  className="absolute inset-0 w-full h-full object-contain opacity-40 blur-[2px]"
-                />
-              )}
-              <div className="w-12 h-6 rounded-md bg-white/5 border border-white/5 relative z-10" />
-              <div className="space-y-2 relative z-10">
-                <div className="w-2/3 h-4 rounded-md bg-white/5" />
-                <div className="w-1/3 h-3 rounded-md bg-white/5" />
-              </div>
-            </div>
-          )}
-
-          {template.video && (!isTouchDevice || !template.image) ? (
+          {template.video ? (
             <video
               src={template.video}
-              poster={template.image || undefined}
-              className={`w-full h-full object-contain block transition-all duration-700 group-hover:opacity-90 ${
-                loadedIds.has(template.id) ? "opacity-100 scale-100" : "opacity-0 scale-95"
-              }`}
+              className="w-full h-full object-contain block transition-opacity duration-500 group-hover:opacity-90"
+              loading="lazy"
               autoPlay
               loop
               muted
               playsInline
-              preload="auto"
+              preload="metadata"
               onLoadedData={() => handleMediaLoaded(template.id)}
             />
           ) : (
             <img
               src={template.image}
               alt={template.title}
-              className={`w-full h-full object-contain block transition-all duration-700 group-hover:opacity-90 ${
-                loadedIds.has(template.id) ? "opacity-100 scale-100" : "opacity-0 scale-95"
-              }`}
+              className="w-full h-full object-contain block transition-opacity duration-500 group-hover:opacity-90"
               onLoad={() => handleMediaLoaded(template.id)}
               loading="lazy"
             />
@@ -692,13 +658,11 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
                 {previewTemplate.video ? (
                   <video
                     src={previewTemplate.video}
-                    poster={previewTemplate.image}
                     className="w-full h-auto max-h-[80vh] block object-contain"
                     autoPlay
                     muted
                     loop
                     playsInline
-                    preload="auto"
                   />
                 ) : (
                   <img

@@ -580,14 +580,3 @@ html {
 .lg-scroll::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.15);
 }
-
-/* ── Shimmer Effect for Loading Skeletons ──────────────────────── */
-@keyframes shimmer {
-  100% {
-    transform: translateX(100%);
-  }
-}
-.animate-shimmer {
-  animation: shimmer 1.6s infinite;
-}
-
