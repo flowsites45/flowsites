@@ -82,7 +82,7 @@ export default function Auth({ onBack, onSuccess }) {
   function initializeGoogle() {
     if (window.google) {
       window.google.accounts.id.initialize({
-        client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+        client_id: "811051532588-2kreubt0ofqhf4nl5s5lf3v7tsfmnqec.apps.googleusercontent.com",
         callback: handleCredentialResponse,
       });
       const btnContainer = document.getElementById("google-signin-btn");
