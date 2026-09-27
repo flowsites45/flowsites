@@ -253,3 +253,95 @@ export async function updateUserPlan(userId, plan, razorpaySubscriptionId = null
   }
   return data;
 }
+
+export async function captureVideoFirstFrame(videoSource, seekTime = 0.05) {
+  return new Promise((resolve) => {
+    if (!videoSource) {
+      resolve(null);
+      return;
+    }
+    const video = document.createElement("video");
+    video.crossOrigin = "anonymous";
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = "auto";
+
+    let objectUrl = null;
+    if (videoSource instanceof File || videoSource instanceof Blob) {
+      objectUrl = URL.createObjectURL(videoSource);
+      video.src = objectUrl;
+    } else if (typeof videoSource === "string" && videoSource.trim()) {
+      video.src = videoSource.trim();
+    } else {
+      resolve(null);
+      return;
+    }
+
+    let isCleanedUp = false;
+    const cleanUp = () => {
+      if (isCleanedUp) return;
+      isCleanedUp = true;
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+      video.onloadeddata = null;
+      video.onseeked = null;
+      video.onerror = null;
+      video.remove();
+    };
+
+    const captureCanvas = () => {
+      try {
+        const width = video.videoWidth || 640;
+        const height = video.videoHeight || 360;
+        if (!width || !height) {
+          cleanUp();
+          resolve(null);
+          return;
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(video, 0, 0, width, height);
+
+        canvas.toBlob(
+          (blob) => {
+            cleanUp();
+            resolve(blob);
+          },
+          "image/jpeg",
+          0.88
+        );
+      } catch (err) {
+        console.warn("Canvas capture error:", err);
+        cleanUp();
+        resolve(null);
+      }
+    };
+
+    video.onloadeddata = () => {
+      try {
+        video.currentTime = Math.min(seekTime, (video.duration || 1) / 2);
+      } catch {
+        captureCanvas();
+      }
+    };
+
+    video.onseeked = () => {
+      captureCanvas();
+    };
+
+    video.onerror = (e) => {
+      console.warn("Video loading error for thumbnail capture:", e);
+      cleanUp();
+      resolve(null);
+    };
+
+    setTimeout(() => {
+      cleanUp();
+      resolve(null);
+    }, 10000);
+  });
+}
+

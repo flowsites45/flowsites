@@ -30,16 +30,21 @@ import {
   uploadImage,
   uploadVideo,
   saveTemplatesOrder,
+  captureVideoFirstFrame,
 } from "../../lib/store";
 
 const categories = [
   "Hero Section",
   "Landing Page",
   "UI Components",
-  "Portfolio",
-  "Dashboard",
+  "Real Estate",
+  "Food",
+  "Health",
   "Agency",
   "Ecommerce",
+  "Portfolio",
+  "Saas",
+  "Dashboard",
   "Background Assets",
 ];
 const types = ["Free", "Premium", "Premium Plus"];
@@ -60,6 +65,39 @@ function formatLikes(value) {
   return value + "";
 }
 
+function TemplateThumbnail({ template }) {
+  const [imgError, setImgError] = useState(false);
+
+  if (template.image && !imgError) {
+    return (
+      <img
+        src={template.image}
+        alt={template.title}
+        className="w-full h-full object-cover"
+        onError={() => setImgError(true)}
+      />
+    );
+  }
+
+  if (template.video) {
+    return (
+      <video
+        src={template.video + "#t=0.001"}
+        preload="metadata"
+        muted
+        playsInline
+        className="w-full h-full object-cover pointer-events-none"
+      />
+    );
+  }
+
+  return (
+    <div className="w-full h-full flex items-center justify-center text-white/20 bg-white/5">
+      <Video className="w-4 h-4" />
+    </div>
+  );
+}
+
 export default function Admin({ onBack, onViewGallery, onLogout }) {
   const [templates, setTemplates] = useState([]);
   const [search, setSearch] = useState("");
@@ -72,6 +110,7 @@ export default function Admin({ onBack, onViewGallery, onLogout }) {
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [capturingThumbnail, setCapturingThumbnail] = useState(false);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -153,11 +192,60 @@ export default function Admin({ onBack, onViewGallery, onLogout }) {
     setPreviewMode(false);
   }
 
+  async function handleCaptureFromVideo(sourceVideo) {
+    const videoTarget = sourceVideo || form.video;
+    if (!videoTarget) {
+      showToast("Please provide a video first");
+      return null;
+    }
+    setCapturingThumbnail(true);
+    try {
+      const frameBlob = await captureVideoFirstFrame(videoTarget);
+      if (frameBlob) {
+        const thumbFile = new File([frameBlob], `thumb-${Date.now()}.jpg`, { type: "image/jpeg" });
+        const url = await uploadImage(thumbFile);
+        if (url) {
+          setForm((f) => ({ ...f, image: url }));
+          showToast("Thumbnail captured from first frame!");
+          return url;
+        } else {
+          showToast("Failed to upload captured thumbnail");
+        }
+      } else {
+        showToast("Could not capture frame from video");
+      }
+    } catch (err) {
+      showToast("Error capturing frame: " + err.message);
+    } finally {
+      setCapturingThumbnail(false);
+    }
+    return null;
+  }
+
   async function handleSave() {
+    let imageToSave = form.image.trim();
+
+    // Auto-generate thumbnail from first frame if video exists but image is empty
+    if (!imageToSave && form.video.trim()) {
+      setSaving(true);
+      try {
+        const frameBlob = await captureVideoFirstFrame(form.video.trim());
+        if (frameBlob) {
+          const thumbFile = new File([frameBlob], `thumb-${Date.now()}.jpg`, { type: "image/jpeg" });
+          const url = await uploadImage(thumbFile);
+          if (url) {
+            imageToSave = url;
+          }
+        }
+      } catch (err) {
+        console.warn("Auto thumbnail capture before save failed:", err);
+      }
+    }
+
     const finalForm = {
       ...form,
       title: form.title.trim() || "Untitled",
-      image: form.image.trim() || "",
+      image: imageToSave,
       video: form.video.trim() || "",
       prompt: form.prompt.trim() || "",
     };
@@ -210,11 +298,33 @@ export default function Admin({ onBack, onViewGallery, onLogout }) {
     const file = e.target.files[0];
     if (!file) return;
     setUploadingVideo(true);
+
+    // Auto-capture thumbnail from first frame if image is empty
+    let generatedThumbUrl = null;
+    if (!form.image) {
+      setCapturingThumbnail(true);
+      try {
+        const frameBlob = await captureVideoFirstFrame(file);
+        if (frameBlob) {
+          const thumbFile = new File([frameBlob], `thumb-${Date.now()}.jpg`, { type: "image/jpeg" });
+          generatedThumbUrl = await uploadImage(thumbFile);
+        }
+      } catch (err) {
+        console.warn("Could not capture video thumbnail:", err);
+      } finally {
+        setCapturingThumbnail(false);
+      }
+    }
+
     const url = await uploadVideo(file);
     setUploadingVideo(false);
     if (url) {
-      setForm((f) => ({ ...f, video: url }));
-      showToast("Video uploaded to storage");
+      setForm((f) => ({
+        ...f,
+        video: url,
+        image: f.image || generatedThumbUrl || "",
+      }));
+      showToast(generatedThumbUrl ? "Video & 1st frame thumbnail uploaded!" : "Video uploaded to storage");
     } else {
       showToast("Failed to upload video");
     }
@@ -374,14 +484,8 @@ export default function Admin({ onBack, onViewGallery, onLogout }) {
 
                 {/* Template info */}
                 <div className="col-span-3 flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-lg overflow-hidden bg-[#0d0d0f] shrink-0">
-                    {template.image && (
-                      <img
-                        src={template.image}
-                        alt={template.title}
-                        className="w-full h-full object-cover"
-                      />
-                    )}
+                  <div className="w-12 h-12 rounded-lg overflow-hidden bg-[#0d0d0f] border border-white/8 shrink-0 flex items-center justify-center relative shadow-sm">
+                    <TemplateThumbnail template={template} />
                   </div>
                   <div className="min-w-0">
                     <p className="font-medium text-white text-sm truncate">{template.title}</p>
@@ -624,17 +728,44 @@ export default function Admin({ onBack, onViewGallery, onLogout }) {
 
                     {/* Thumbnail Image */}
                     <div>
-                      <label className="block text-xs font-medium text-white/30 uppercase tracking-wider mb-2">
-                        Thumbnail Image
-                      </label>
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="block text-xs font-medium text-white/30 uppercase tracking-wider">
+                          Thumbnail Image
+                        </label>
+                        {form.video && (
+                          <button
+                            type="button"
+                            onClick={() => handleCaptureFromVideo()}
+                            disabled={capturingThumbnail}
+                            className="flex items-center gap-1 text-xs text-amber-400 hover:text-amber-300 transition-colors disabled:opacity-50 cursor-pointer"
+                          >
+                            {capturingThumbnail ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <Sparkles className="w-3 h-3" />
+                            )}
+                            {capturingThumbnail ? "Capturing..." : "Extract from video"}
+                          </button>
+                        )}
+                      </div>
                       <div className="flex items-center gap-3">
-                        <div className="w-20 h-20 rounded-xl overflow-hidden bg-[#0d0d0f] border border-white/8 shrink-0">
-                          {form.image && (
+                        <div className="w-20 h-20 rounded-xl overflow-hidden bg-[#0d0d0f] border border-white/8 shrink-0 relative flex items-center justify-center">
+                          {form.image ? (
                             <img
                               src={form.image}
                               alt="Thumbnail"
                               className="w-full h-full object-cover"
                             />
+                          ) : form.video ? (
+                            <video
+                              src={form.video + "#t=0.001"}
+                              preload="metadata"
+                              muted
+                              playsInline
+                              className="w-full h-full object-cover pointer-events-none"
+                            />
+                          ) : (
+                            <div className="text-white/20 text-xs">No image</div>
                           )}
                         </div>
                         <div className="flex-1 space-y-2">
@@ -645,14 +776,28 @@ export default function Admin({ onBack, onViewGallery, onLogout }) {
                             placeholder="Paste image URL or upload..."
                             className="lg-input w-full rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none transition-colors"
                           />
-                          <button
-                            onClick={() => fileInputRef.current?.click()}
-                            disabled={uploadingImage}
-                            className="lg-pill flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-white/50 hover:text-white transition-colors disabled:opacity-50"
-                          >
-                            {uploadingImage ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-                            {uploadingImage ? "Uploading..." : "Upload from device"}
-                          </button>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <button
+                              type="button"
+                              onClick={() => fileInputRef.current?.click()}
+                              disabled={uploadingImage}
+                              className="lg-pill flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-white/50 hover:text-white transition-colors disabled:opacity-50 cursor-pointer"
+                            >
+                              {uploadingImage ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                              {uploadingImage ? "Uploading..." : "Upload from device"}
+                            </button>
+                            {form.video && (
+                              <button
+                                type="button"
+                                onClick={() => handleCaptureFromVideo()}
+                                disabled={capturingThumbnail}
+                                className="lg-pill flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-amber-400 hover:text-amber-300 border-amber-500/20 bg-amber-500/10 transition-colors disabled:opacity-50 cursor-pointer"
+                              >
+                                {capturingThumbnail ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                                {capturingThumbnail ? "Capturing 1st frame..." : "Use video 1st frame"}
+                              </button>
+                            )}
+                          </div>
                           <input
                             ref={fileInputRef}
                             type="file"

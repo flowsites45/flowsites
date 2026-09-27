@@ -6,6 +6,9 @@ import {
   Check,
   Search,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Layers,
   X,
   Sparkles,
   Filter,
@@ -18,7 +21,19 @@ import { getPublishedTemplates, incrementLikes } from "../../lib/store";
 import { canCopy, requiredPlanLabel } from "../../lib/access.js";
 import UserProfileMenu from "../UserProfileMenu.jsx";
 
-const categories = ["All", "Hero Section", "Landing Page", "UI Components"];
+const categories = [
+  "All",
+  "Hero Section",
+  "Landing Page",
+  "UI Components",
+  "Real Estate",
+  "Food",
+  "Health",
+  "Agency",
+  "Ecommerce",
+  "Portfolio",
+  "Saas",
+];
 const backgroundCategory = "Background Assets";
 const types = ["All", "Free", "Premium", "Premium Plus"];
 const sortOptions = ["Featured", "Popular", "Newest", "Liked"];
@@ -44,6 +59,82 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
   const [previewTemplate, setPreviewTemplate] = useState(null);
   const [loadedIds, setLoadedIds] = useState(new Set());
   const searchRef = useRef(null);
+  const categoryScrollRef = useRef(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartX = useRef(0);
+  const dragScrollLeft = useRef(0);
+  const hasDragged = useRef(false);
+
+  const checkScroll = () => {
+    const el = categoryScrollRef.current;
+    if (!el) return;
+    const { scrollLeft, scrollWidth, clientWidth } = el;
+    setCanScrollLeft(scrollLeft > 6);
+    setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 6);
+  };
+
+  useEffect(() => {
+    checkScroll();
+    const handleResize = () => checkScroll();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [templates]);
+
+  const scrollCategories = (direction) => {
+    if (categoryScrollRef.current) {
+      const amount = direction === "left" ? -280 : 280;
+      categoryScrollRef.current.scrollBy({ left: amount, behavior: "smooth" });
+      setTimeout(checkScroll, 350);
+    }
+  };
+
+  const handleWheel = (e) => {
+    if (categoryScrollRef.current && Math.abs(e.deltaX) < Math.abs(e.deltaY)) {
+      categoryScrollRef.current.scrollLeft += e.deltaY * 0.9;
+      checkScroll();
+    }
+  };
+
+  const handleMouseDown = (e) => {
+    if (!categoryScrollRef.current) return;
+    setIsDragging(true);
+    hasDragged.current = false;
+    dragStartX.current = e.pageX - categoryScrollRef.current.offsetLeft;
+    dragScrollLeft.current = categoryScrollRef.current.scrollLeft;
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isDragging || !categoryScrollRef.current) return;
+    const x = e.pageX - categoryScrollRef.current.offsetLeft;
+    const walk = (x - dragStartX.current) * 1.3;
+    if (Math.abs(walk) > 5) {
+      hasDragged.current = true;
+    }
+    categoryScrollRef.current.scrollLeft = dragScrollLeft.current - walk;
+    checkScroll();
+  };
+
+  const handleMouseUpOrLeave = () => {
+    setIsDragging(false);
+    setTimeout(() => {
+      hasDragged.current = false;
+    }, 60);
+  };
+
+  const selectCategory = (c, e) => {
+    if (hasDragged.current) return;
+    setSelectedCategory(c);
+    if (e?.currentTarget && categoryScrollRef.current) {
+      e.currentTarget.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+        inline: "center",
+      });
+      setTimeout(checkScroll, 350);
+    }
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -83,12 +174,12 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
       const matchesSearch =
         t.title.toLowerCase().includes(search.toLowerCase()) ||
         t.category.toLowerCase().includes(search.toLowerCase());
-      const isBackground = t.category === backgroundCategory;
+      const isBackground = t.category?.toLowerCase() === backgroundCategory.toLowerCase();
       const matchesCategory = selectedCategory === backgroundCategory
         ? isBackground
         : selectedCategory === "All"
           ? !isBackground
-          : t.category === selectedCategory;
+          : t.category?.toLowerCase() === selectedCategory.toLowerCase();
       const matchesType = selectedType === "All" || t.type === selectedType;
       return matchesSearch && matchesCategory && matchesType;
     })
@@ -439,7 +530,7 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
               className="lg-input w-full rounded-full pl-10 pr-4 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none transition-colors"
             />
           </div>
-          <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
             {categories.map((c) => (
               <button
                 key={c}
@@ -472,39 +563,142 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
           <span className="text-white/60">Browse</span>
         </div>
 
-        {/* Desktop Category Chips */}
-        <div className="hidden md:flex items-center gap-2 mb-10 flex-wrap">
-          {categories.map((c) => (
-            <button
-              key={c}
-              onClick={() => setSelectedCategory(c)}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                selectedCategory === c ? "lg-pill-active" : "lg-pill text-white/60 hover:text-white"
-              }`}
-            >
-              {c}
-            </button>
-          ))}
-          <div className="w-px h-6 bg-white/15" />
-          <button
-            onClick={() => setSelectedCategory(backgroundCategory)}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-              selectedCategory === backgroundCategory ? "lg-pill-active" : "lg-pill text-white/60 hover:text-white"
+        {/* Desktop Category Chips Bar with Smooth Scroll & Liquid Glass Effects */}
+        <div className="hidden md:block relative mb-10 w-full select-none">
+          {/* Left Arrow & Fade Mask */}
+          <AnimatePresence>
+            {canScrollLeft && (
+              <motion.div
+                initial={{ opacity: 0, x: -6 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -6 }}
+                transition={{ duration: 0.2 }}
+                className="absolute left-0 top-0 bottom-0 z-20 flex items-center pr-10 bg-gradient-to-r from-[#070707] via-[#070707]/90 to-transparent pointer-events-none"
+              >
+                <button
+                  type="button"
+                  onClick={() => scrollCategories("left")}
+                  className="pointer-events-auto flex items-center justify-center w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 backdrop-blur-md text-white/90 hover:text-white shadow-[0_4px_16px_rgba(0,0,0,0.5)] transition-all hover:scale-105 active:scale-95 cursor-pointer"
+                  aria-label="Scroll categories left"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Scrollable Container */}
+          <div
+            ref={categoryScrollRef}
+            onScroll={checkScroll}
+            onWheel={handleWheel}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUpOrLeave}
+            onMouseLeave={handleMouseUpOrLeave}
+            className={`flex items-center gap-2 overflow-x-auto no-scrollbar py-1 px-1 scroll-smooth ${
+              isDragging ? "cursor-grabbing select-none" : "cursor-grab"
             }`}
           >
-            {backgroundCategory}
-          </button>
-          {hasActiveFilters && (
-            <button
-              onClick={() => {
-                setSelectedCategory("All");
-                setSelectedType("All");
-              }}
-              className="flex items-center gap-1 px-3 py-2 rounded-full text-sm font-medium text-white/40 hover:text-white transition-colors"
-            >
-              <X className="w-3.5 h-3.5" /> Clear filters
-            </button>
-          )}
+            {categories.map((c) => {
+              const isActive = selectedCategory === c;
+              return (
+                <motion.button
+                  key={c}
+                  type="button"
+                  onClick={(e) => selectCategory(c, e)}
+                  whileHover={{ y: -1 }}
+                  whileTap={{ scale: 0.96 }}
+                  className={`group relative shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                    isActive
+                      ? "text-[#070707]"
+                      : "lg-pill text-white/60 hover:text-white"
+                  }`}
+                >
+                  {isActive && (
+                    <motion.div
+                      layoutId="activeCategoryPill"
+                      className="absolute inset-0 bg-white rounded-full shadow-[0_2px_16px_rgba(255,255,255,0.3)]"
+                      transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                    />
+                  )}
+                  <span className="relative z-10">{c}</span>
+                </motion.button>
+              );
+            })}
+
+            <div className="w-px h-5 bg-white/15 shrink-0 mx-1" />
+
+            {/* Background Assets */}
+            {(() => {
+              const isBgActive = selectedCategory === backgroundCategory;
+              return (
+                <motion.button
+                  type="button"
+                  onClick={(e) => selectCategory(backgroundCategory, e)}
+                  whileHover={{ y: -1 }}
+                  whileTap={{ scale: 0.96 }}
+                  className={`group relative shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                    isBgActive
+                      ? "text-[#070707]"
+                      : "lg-pill text-white/70 hover:text-white border-white/15 hover:border-violet-400/40"
+                  }`}
+                >
+                  {isBgActive && (
+                    <motion.div
+                      layoutId="activeCategoryPill"
+                      className="absolute inset-0 bg-white rounded-full shadow-[0_2px_16px_rgba(255,255,255,0.3)]"
+                      transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                    />
+                  )}
+                  <Layers
+                    className={`w-3.5 h-3.5 relative z-10 transition-colors ${
+                      isBgActive
+                        ? "text-[#070707]"
+                        : "text-violet-400 group-hover:text-violet-300"
+                    }`}
+                  />
+                  <span className="relative z-10">{backgroundCategory}</span>
+                </motion.button>
+              );
+            })()}
+
+            {/* Clear Filters button */}
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedCategory("All");
+                  setSelectedType("All");
+                }}
+                className="shrink-0 flex items-center gap-1 px-3 py-2 rounded-full text-sm font-medium text-white/40 hover:text-white transition-colors ml-1 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" /> Clear filters
+              </button>
+            )}
+          </div>
+
+          {/* Right Arrow & Fade Mask */}
+          <AnimatePresence>
+            {canScrollRight && (
+              <motion.div
+                initial={{ opacity: 0, x: 6 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 6 }}
+                transition={{ duration: 0.2 }}
+                className="absolute right-0 top-0 bottom-0 z-20 flex items-center pl-10 bg-gradient-to-l from-[#070707] via-[#070707]/90 to-transparent pointer-events-none"
+              >
+                <button
+                  type="button"
+                  onClick={() => scrollCategories("right")}
+                  className="pointer-events-auto flex items-center justify-center w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 backdrop-blur-md text-white/90 hover:text-white shadow-[0_4px_16px_rgba(0,0,0,0.5)] transition-all hover:scale-105 active:scale-95 cursor-pointer"
+                  aria-label="Scroll categories right"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
 
