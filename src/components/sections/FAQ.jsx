@@ -32,12 +32,13 @@ export default function FAQ() {
           <motion.div 
             key={i}
             variants={fadeSlideUp}
+            whileHover={{ y: -2, transition: { duration: 0.2 } }}
             className={`${glassCard} overflow-hidden`}
           >
             <div className={glassSheen} />
             <button
               onClick={() => setOpenIndex(openIndex === i ? null : i)}
-              className="w-full p-6 flex items-center justify-between text-left focus:outline-none"
+              className="w-full p-6 flex items-center justify-between text-left focus:outline-none cursor-pointer"
             >
               <span className="font-display text-xl text-foreground">{faq.q}</span>
               <motion.div
@@ -57,7 +58,7 @@ export default function FAQ() {
                   exit={{ height: 0, opacity: 0, filter: "blur(5px)" }}
                   transition={springs.soft}
                 >
-                  <div className="px-6 pb-6 pt-0 font-body text-foreground/70 leading-relaxed text-sm md:text-base border-t border-black/5 mt-2">
+                  <div className="px-6 pb-6 pt-0 font-body text-foreground/80 leading-relaxed text-sm md:text-base border-t border-black/[0.04] mt-2">
                     <p className="pt-4">{faq.a}</p>
                   </div>
                 </motion.div>

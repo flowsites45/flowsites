@@ -2,13 +2,236 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>flowsites</title>
+    <title>Flowsites — The Art of AI Design | 100+ Premium AI Website Prompts &amp; Templates</title>
+    
+    <!-- SEO & Metadata -->
+    <meta name="description" content="Build beautiful websites in minutes with Flowsites. 100+ premium AI website prompts and production-ready templates for Claude Code, Cursor, Codex, Antigravity, Lovable, Bolt, React, Next.js, and Tailwind CSS." />
+    <meta name="keywords" content="Flowsites, AI website templates, AI prompts, Claude Code prompts, Cursor AI templates, OpenAI Codex prompts, Lovable dev templates, Bolt.new prompts, Antigravity AI, React website prompts, Tailwind CSS templates, copy AI prompt" />
+    <meta name="author" content="Flowsites" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <link rel="canonical" href="https://flowsites.store/" />
+    <meta name="theme-color" content="#070707" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#fcfaf8" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#070707" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://flowsites.store/" />
+    <meta property="og:site_name" content="Flowsites" />
+    <meta property="og:title" content="Flowsites — The Art of AI Design | 100+ Premium AI Website Prompts" />
+    <meta property="og:description" content="Build stunning websites in minutes. Copy curated prompts into Claude Code, Cursor, Codex, Antigravity, Lovable, Bolt, or any AI coding tool." />
+    <meta property="og:image" content="https://flowsites.store/silver-fallback.png" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://flowsites.store/" />
+    <meta name="twitter:title" content="Flowsites — The Art of AI Design | 100+ Premium AI Website Prompts" />
+    <meta name="twitter:description" content="Build stunning websites in minutes. Copy curated prompts into Claude Code, Cursor, Codex, Antigravity, Lovable, Bolt, or any AI coding tool." />
+    <meta name="twitter:image" content="https://flowsites.store/silver-fallback.png" />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <!-- External Scripts -->
     <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+    <!-- Structured Data (JSON-LD) for Search Engines & AI Crawlers (ChatGPT, Claude, Google, Bing) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "WebSite",
+          "@id": "https://flowsites.store/#website",
+          "url": "https://flowsites.store/",
+          "name": "Flowsites",
+          "description": "100+ Premium AI Website Prompts and Production-Ready Templates for Modern AI Development.",
+          "inLanguage": "en"
+        },
+        {
+          "@type": "Organization",
+          "@id": "https://flowsites.store/#organization",
+          "name": "Flowsites",
+          "url": "https://flowsites.store/",
+          "logo": "https://flowsites.store/favicon.svg"
+        },
+        {
+          "@type": "SoftwareApplication",
+          "name": "Flowsites AI Website Templates",
+          "applicationCategory": "DeveloperApplication",
+          "operatingSystem": "All",
+          "description": "Curated library of prompts and templates optimized for Claude Code, Codex, Cursor, Antigravity, Lovable, Bolt, React, and Tailwind CSS.",
+          "offers": [
+            {
+              "@type": "Offer",
+              "name": "Free Plan",
+              "price": "0",
+              "priceCurrency": "USD",
+              "description": "Access to free website prompts and UI components"
+            },
+            {
+              "@type": "Offer",
+              "name": "Premium Plan",
+              "price": "10",
+              "priceCurrency": "USD",
+              "billingDuration": "P1M",
+              "description": "Unlimited access to all assets, commercial license, dedicated support"
+            },
+            {
+              "@type": "Offer",
+              "name": "Premium Plus Plan",
+              "price": "15",
+              "priceCurrency": "USD",
+              "billingDuration": "P1M",
+              "description": "Unlimited access to all assets and background assets with commercial license"
+            }
+          ]
+        },
+        {
+          "@type": "FAQPage",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "Do I need to know how to code?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Not at all. You can generate entire layouts just by copying and pasting prompts into AI coding tools like Claude Code, Cursor, Lovable, or Bolt. If you do code, you'll love the clean React and Tailwind output."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Does Flowsites work with Next.js and React?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes. All components and templates are fully compatible with modern web frameworks including Next.js, Vite, React, and Tailwind CSS."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Can I use Flowsites templates for client projects?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Absolutely. With a Premium or commercial license, you can generate an unlimited number of client websites without attribution."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Which AI tools are supported?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Flowsites prompts are tailored for Claude Code, OpenAI Codex, Cursor, Google Antigravity, Lovable, Bolt.new, v0, Replit, and any modern AI coding assistant."
+              }
+            }
+          ]
+        }
+      ]
+    }
+    </script>
   </head>
-  <body>
+  <body class="bg-[#070707] text-white antialiased selection:bg-white/20">
+    <!-- Clean SPA Mount Root: Empty so React mounts seamlessly with zero visual flash or layout shifts -->
     <div id="root"></div>
+
+    <!-- Complete Semantic Content for AI Scrapers, Search Engines & Crawlers (ChatGPT, Claude, Googlebot) -->
+    <noscript>
+      <header>
+        <div>✦ Flowsites</div>
+        <nav>
+          <a href="/gallery">Browse Templates</a> |
+          <a href="/pricing">Pricing</a> |
+          <a href="/#features">Features</a> |
+          <a href="/#contact">Contact</a>
+        </nav>
+      </header>
+
+      <main>
+        <section>
+          <p>✨ 100+ Premium AI Website Prompts • New Designs Everyday</p>
+          <h1>Flowsites — The Art of AI Design.</h1>
+          <p>Build beautiful sites in minutes with our ready-to-use prompts. Just copy, paste, and launch.</p>
+        </section>
+
+        <section>
+          <h2>How to Use Flowsites</h2>
+          <ol>
+            <li>
+              <h3>Step 01: Copy the AI Prompt</h3>
+              <p>Browse our curated gallery of free and premium templates. Copy the production-grade prompt with a single click.</p>
+            </li>
+            <li>
+              <h3>Step 02: Paste into AI Coding Tools</h3>
+              <p>Paste it into Claude Code, Codex, Cursor, Antigravity, Lovable, Bolt, or any AI coding tool of your choice.</p>
+            </li>
+            <li>
+              <h3>Step 03: Run &amp; Customize Locally</h3>
+              <p>The AI agent pulls code, runs HTML or React on localhost, and applies your custom edits smoothly on top.</p>
+            </li>
+          </ol>
+        </section>
+
+        <section>
+          <h2>Curated Template Categories</h2>
+          <ul>
+            <li>Hero Section</li>
+            <li>Landing Page</li>
+            <li>UI Components</li>
+            <li>Real Estate</li>
+            <li>Food &amp; Beverage</li>
+            <li>Health &amp; Wellness</li>
+            <li>Digital Agency</li>
+            <li>Ecommerce</li>
+            <li>Personal Portfolio</li>
+            <li>SaaS Platforms</li>
+            <li>Background Assets</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>Built for Modern AI Development</h2>
+          <p>Compatible with React, Next.js, Tailwind CSS, Framer Motion, Shadcn UI, Claude Code, Cursor, Codex, Google Antigravity, Lovable, and Bolt.new.</p>
+        </section>
+
+        <section>
+          <h2>Simple, Transparent Pricing</h2>
+          <div>
+            <h3>Free Plan ($0)</h3>
+            <p>Access to all Free prompts &amp; templates with one-click prompt copying and commercial usage.</p>
+          </div>
+          <div>
+            <h3>Premium Plan ($10 / month billed annually, $20 monthly)</h3>
+            <p>Unlimited access to all assets, future template releases, commercial license for client work, and dedicated support.</p>
+          </div>
+          <div>
+            <h3>Premium Plus Plan ($15 / month billed annually, $30 monthly)</h3>
+            <p>Unlimited access to all assets, exclusive video background assets, future asset releases, unlimited client license, and priority support.</p>
+          </div>
+        </section>
+
+        <section>
+          <h2>Frequently Asked Questions</h2>
+          <dl>
+            <dt>Do I need to know how to code?</dt>
+            <dd>Not at all. You can generate entire layouts just by copying and pasting prompts into AI coding tools. If you do code, you will love our clean React output.</dd>
+
+            <dt>Does this work with Next.js?</dt>
+            <dd>Yes. All components are fully compatible with modern frameworks including Next.js, Vite, and React setups.</dd>
+
+            <dt>Are the animations heavy on performance?</dt>
+            <dd>No. We optimize all transitions to run hardware-accelerated with fluid motion and zero layout thrashing.</dd>
+
+            <dt>Can I use these for client projects?</dt>
+            <dd>Absolutely. With a license, you can generate an unlimited number of client websites without attribution.</dd>
+          </dl>
+        </section>
+      </main>
+
+      <footer>
+        <p>&copy; 2026 Flowsites. All rights reserved. The Art of AI Design.</p>
+      </footer>
+    </noscript>
+
+    <!-- React Application Entrypoint -->
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

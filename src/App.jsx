@@ -22,15 +22,12 @@ import Overlays from "./components/sections/Overlays"
 import Gallery from "./components/sections/Gallery"
 import Admin from "./components/sections/Admin"
 import AdminAuth from "./components/sections/AdminAuth"
-import PremiumCursor from "./components/PremiumCursor"
 import Auth from "./components/Auth"
+import LiquidMetalButtonPlus from "./components/ui/LiquidMetalButtonPlus"
+import { OpticalNavbar } from "./components/ui/OpticalGlass"
 import { staggerContainer, fadeSlideUp, elasticButton } from "./lib/animations"
 
-const glassCard = "bg-gradient-to-b from-white/70 to-white/50 border border-white/60 shadow-[0_20px_60px_-15px_rgba(45,45,74,0.12),0_8px_24px_-8px_rgba(45,45,74,0.08),inset_0_1px_0_0_rgba(255,255,255,0.9),inset_0_-1px_0_0_rgba(255,255,255,0.2)] rounded-[2rem] relative overflow-hidden";
-const glassPill = "bg-gradient-to-b from-white/70 to-white/50 border border-white/60 shadow-[0_8px_24px_-6px_rgba(45,45,74,0.1),inset_0_1px_0_0_rgba(255,255,255,0.9)] rounded-full text-foreground/90 px-5 py-2 relative overflow-hidden";
-const glassIcon = "bg-gradient-to-b from-white/90 to-white/60 border border-white/90 shadow-[0_8px_20px_-6px_rgba(45,45,74,0.12),inset_0_1px_0_0_rgba(255,255,255,1)]";
-const glassChip = "bg-gradient-to-b from-white/80 to-white/50 border border-white/70 shadow-[0_6px_16px_-4px_rgba(45,45,74,0.08),inset_0_1px_0_0_rgba(255,255,255,0.9)] rounded-full";
-const glassSheen = "absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/80 to-transparent";
+import { glassCard, glassPill, glassIcon, glassChip, glassSheen, pastelBg } from "./lib/styles"
 
 const slugToView = (slug) => {
   if (slug === "/gallery") return "gallery";
@@ -85,6 +82,21 @@ export default function App() {
       else setUserProfile(null);
     });
     return () => listener.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      window.__SET_DEV_VIEW__ = (v) => setView(v);
+      window.__SET_DEV_AUTH__ = (mockUser, mockProfile) => {
+        if (!mockUser) {
+          setSession(null);
+          setUserProfile(null);
+        } else {
+          setSession({ user: mockUser });
+          setUserProfile(mockProfile || { plan: "free" });
+        }
+      };
+    }
   }, []);
 
   function handleAuthSuccess() {
@@ -148,50 +160,39 @@ export default function App() {
       setView("gallery");
       return null;
     }
-    return (
-      <>
-        <Auth onBack={() => setView("landing")} onSuccess={handleAuthSuccess} />
-        <PremiumCursor />
-      </>
-    )
+    return <Auth onBack={() => setView("landing")} onSuccess={handleAuthSuccess} />;
   }
 
   if (view === "gallery") {
     return (
-      <>
-        <Gallery 
-          onAdminAuth={() => setView("admin-auth")} 
-          onHome={() => setView("landing")} 
-          session={session}
-          userProfile={userProfile}
-          onAuthRequired={handleAuthRequired}
-          onGoUnlimited={() => setView("pricing")}
-          pendingCopyTemplateId={pendingCopyTemplateId}
-          onClearPendingCopy={() => setPendingCopyTemplateId(null)}
-          onLogout={async () => { await supabase.auth.signOut(); setUserProfile(null); }}
-        />
-        <PremiumCursor />
-      </>
-    )
+      <Gallery 
+        onAdminAuth={() => setView("admin-auth")} 
+        onHome={() => setView("landing")} 
+        session={session}
+        userProfile={userProfile}
+        onAuthRequired={handleAuthRequired}
+        onGoUnlimited={() => setView("pricing")}
+        pendingCopyTemplateId={pendingCopyTemplateId}
+        onClearPendingCopy={() => setPendingCopyTemplateId(null)}
+        onLogout={async () => { await supabase.auth.signOut(); setUserProfile(null); }}
+      />
+    );
   }
 
   if (view === "pricing") {
     return (
-      <>
-        <PricingPage
-          onHome={() => setView("landing")}
-          onGallery={() => setView("gallery")}
-          onGetStarted={() => setView("auth")}
-          session={session}
-          userProfile={userProfile}
-          onAuthRequired={handleAuthRequired}
-          onSubscribeSuccess={handleSubscribeSuccess}
-          pendingSubscribePlanId={pendingSubscribePlanId}
-          onClearPendingSubscribe={() => setPendingSubscribePlanId(null)}
-        />
-        <PremiumCursor />
-      </>
-    )
+      <PricingPage
+        onHome={() => setView("landing")}
+        onGallery={() => setView("gallery")}
+        onGetStarted={() => setView("auth")}
+        session={session}
+        userProfile={userProfile}
+        onAuthRequired={handleAuthRequired}
+        onSubscribeSuccess={handleSubscribeSuccess}
+        pendingSubscribePlanId={pendingSubscribePlanId}
+        onClearPendingSubscribe={() => setPendingSubscribePlanId(null)}
+      />
+    );
   }
 
   if (view === "admin-auth") {
@@ -200,14 +201,11 @@ export default function App() {
       return null;
     }
     return (
-      <>
-        <AdminAuth
-          onSuccess={() => setView("admin")}
-          onBack={() => setView("gallery")}
-        />
-        <PremiumCursor />
-      </>
-    )
+      <AdminAuth
+        onSuccess={() => setView("admin")}
+        onBack={() => setView("gallery")}
+      />
+    );
   }
 
   if (view === "admin") {
@@ -216,11 +214,8 @@ export default function App() {
       return null;
     }
     return (
-      <>
-        <Admin onBack={() => setView("gallery")} onViewGallery={() => setView("gallery")} onLogout={async () => { await supabase.auth.signOut(); setView("gallery"); }} />
-        <PremiumCursor />
-      </>
-    )
+      <Admin onBack={() => setView("gallery")} onViewGallery={() => setView("gallery")} onLogout={async () => { await supabase.auth.signOut(); setView("gallery"); }} />
+    );
   }
 
   return (
@@ -245,50 +240,57 @@ export default function App() {
         </div>
         
         {/* Floating Glass Navbar Capsule */}
-        <div className="px-6 md:px-12 lg:px-20 py-4 relative z-50">
-          <nav className="grid grid-cols-2 md:grid-cols-3 items-center px-6 py-3.5 bg-white/[0.12] backdrop-blur-xl border border-white/[0.18] border-t-white/[0.35] shadow-[0_12px_40px_0_rgba(0,0,0,0.12),inset_0_1px_0_0_rgba(255,255,255,0.25)] rounded-full font-body">
-            {/* Left: Logo */}
-            <div className="text-xl font-semibold tracking-tight text-foreground flex items-center gap-1.5 justify-self-start">
-              <span>✦ Flowsites</span>
-            </div>
+        <div className="px-4 sm:px-8 md:px-12 lg:px-20 py-3 sm:py-4 relative z-50">
+          <OpticalNavbar material="clear" surface="light">
+            <nav className="grid grid-cols-2 md:grid-cols-3 items-center px-4 sm:px-8 py-2.5 sm:py-3.5 font-body w-full">
+              {/* Left: Logo */}
+              <div className="text-lg sm:text-xl font-semibold tracking-tight text-foreground flex items-center gap-1.5 justify-self-start">
+                <span>✦ Flowsites</span>
+              </div>
 
-            {/* Center (hidden on mobile): Nav Links */}
-            <div className="hidden md:flex items-center justify-center gap-8 text-sm font-medium text-muted-foreground justify-self-center">
-              <button onClick={() => setView("gallery")} className="hover:text-foreground transition-colors">Browse</button>
-              <button onClick={() => handleNavScroll("features")} className="hover:text-foreground transition-colors">Features</button>
-              <button onClick={() => setView("pricing")} className="hover:text-foreground transition-colors">Pricing</button>
-              <button onClick={() => handleNavScroll("contact")} className="hover:text-foreground transition-colors">Contact</button>
-            </div>
+              {/* Center (hidden on mobile): Nav Links */}
+              <div className="hidden md:flex items-center justify-center gap-8 text-sm font-medium text-muted-foreground justify-self-center">
+                <button onClick={() => setView("gallery")} className="hover:text-foreground transition-colors cursor-pointer">Browse</button>
+                <button onClick={() => handleNavScroll("features")} className="hover:text-foreground transition-colors cursor-pointer">Features</button>
+                <button onClick={() => setView("pricing")} className="hover:text-foreground transition-colors cursor-pointer">Pricing</button>
+                <button onClick={() => handleNavScroll("contact")} className="hover:text-foreground transition-colors cursor-pointer">Contact</button>
+              </div>
 
-            {/* Right: Auth Buttons */}
-            <div className="flex items-center gap-3 justify-self-end">
-              <Button variant="ghost" onClick={() => setView("auth")} className="rounded-full px-4 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors">
-                Login
-              </Button>
-              <Button onClick={() => setView("auth")} className="rounded-full px-5 text-sm font-medium bg-gradient-to-b from-primary to-primary/90 hover:from-primary hover:to-primary/80 text-primary-foreground border border-primary-foreground/20 border-t-primary-foreground/40 shadow-[0_4px_12px_rgba(0,0,0,0.1),inset_0_1px_0_0_rgba(255,255,255,0.2)] transition-colors">
-                Get Started
-              </Button>
-            </div>
-          </nav>
+              {/* Right: Auth Buttons */}
+              <div className="flex items-center gap-2 sm:gap-3 justify-self-end">
+                <Button variant="ghost" onClick={() => setView("auth")} className="rounded-full px-2.5 sm:px-4 text-xs sm:text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors">
+                  Login
+                </Button>
+                <LiquidMetalButtonPlus
+                  label="Get Started"
+                  showIcon={false}
+                  theme="obsidian"
+                  padding="10px 20px"
+                  font={{ fontSize: "14px", fontWeight: 500 }}
+                  onClick={() => setView(session ? "gallery" : "auth")}
+                />
+              </div>
+            </nav>
+          </OpticalNavbar>
         </div>
 
         {/* HERO SECTION */}
-        <section className="relative z-10 flex-1 flex flex-col items-center justify-center w-full py-16">
-          <div className="flex flex-col items-center w-full px-6 text-center -mt-16 md:-mt-24">
+        <section className="relative z-10 flex-1 flex flex-col items-center justify-center w-full py-12 sm:py-16">
+          <div className="flex flex-col items-center w-full px-4 sm:px-6 text-center -mt-12 sm:-mt-16 md:-mt-24">
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
-              className="inline-flex items-center gap-1.5 rounded-full border border-white/20 border-t-white/40 bg-gradient-to-b from-white/25 to-white/10 px-4 py-1.5 text-sm text-foreground font-body mb-5 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.1),inset_0_1px_0_0_rgba(255,255,255,0.2)]"
+              className="inline-flex items-center gap-1.5 rounded-full border border-white/20 border-t-white/40 bg-gradient-to-b from-white/25 to-white/10 px-3.5 sm:px-4 py-1.5 text-xs sm:text-sm text-foreground font-body mb-5 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.1),inset_0_1px_0_0_rgba(255,255,255,0.2)]"
             >
-              <span className="font-medium text-[13px]">✨ 100+ Premium AI Website Prompts • New Designs Everyday</span>
+              <span className="font-medium text-[11px] sm:text-[13px] leading-tight">✨ 100+ Premium AI Website Prompts • New Designs Everyday</span>
             </motion.div>
 
             <motion.h1
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.1 }}
-              className="font-display text-5xl md:text-6xl lg:text-[5rem] leading-[0.95] tracking-tight text-foreground max-w-xl"
+              className="font-display text-4xl sm:text-5xl md:text-6xl lg:text-[5rem] leading-[0.95] tracking-tight text-foreground max-w-xl"
             >
               The Art of AI Design.
             </motion.h1>
@@ -306,11 +308,13 @@ export default function App() {
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.3 }}
-              className="mt-5 flex items-center gap-3"
+              className="mt-6 flex items-center justify-center"
             >
-              <Button onClick={() => setView("gallery")} className="rounded-full px-6 py-5 text-sm font-medium font-body h-auto bg-gradient-to-b from-primary to-primary/90 hover:from-primary hover:to-primary/80 text-primary-foreground border border-primary-foreground/20 border-t-primary-foreground/40 shadow-[0_8px_32px_-4px_rgba(0,0,0,0.2),inset_0_1px_0_0_rgba(255,255,255,0.2)] transition-colors duration-300 hover:shadow-[0_8px_32px_-4px_rgba(0,0,0,0.3),inset_0_1px_0_0_rgba(255,255,255,0.3)]">
-                Explore Templates
-              </Button>
+              <LiquidMetalButtonPlus
+                label="Explore Templates"
+                theme="obsidian"
+                onClick={() => setView("gallery")}
+              />
             </motion.div>
           </div>
         </section>
@@ -366,11 +370,11 @@ export default function App() {
               <motion.div 
                 key={step.title}
                 variants={fadeSlideUp}
-                whileHover={{ transition: { type: "spring", stiffness: 200, damping: 20 } }}
-                className={`${glassCard} p-8 flex flex-col items-center text-center`}
+                whileHover={{ y: -6, transition: { type: "spring", stiffness: 300, damping: 20 } }}
+                className={`${glassCard} p-8 md:p-10 flex flex-col items-center text-center group cursor-default`}
               >
                 <div className={glassSheen} />
-                <div className={`w-16 h-16 rounded-2xl ${glassIcon} flex items-center justify-center mb-6`}>
+                <div className={`w-16 h-16 rounded-2xl ${glassIcon} flex items-center justify-center mb-6 transition-transform duration-300 group-hover:scale-105`}>
                   <step.icon className="w-7 h-7 text-foreground" />
                 </div>
                 <h3 className="text-xl font-bold font-display mb-3 text-foreground">{step.title}</h3>
@@ -406,9 +410,9 @@ export default function App() {
                 <motion.div 
                   key={feature}
                   variants={fadeSlideUp}
-                  className="flex items-center gap-4 bg-gradient-to-b from-white/70 to-white/40 border border-white/70 rounded-2xl p-4 shadow-[0_8px_24px_-8px_rgba(45,45,74,0.08),inset_0_1px_0_0_rgba(255,255,255,0.9)]"
+                  className="flex items-center gap-4 bg-gradient-to-b from-white/[0.88] via-white/[0.72] to-white/[0.58] backdrop-blur-md border border-white/80 border-t-white rounded-2xl p-4 shadow-[0_4px_14px_-3px_rgba(28,25,38,0.06),0_1px_3px_0_rgba(28,25,38,0.03),inset_0_1px_1px_0_rgba(255,255,255,0.95)] transition-all duration-200 hover:bg-white/[0.95] hover:shadow-[0_8px_20px_-4px_rgba(28,25,38,0.09),inset_0_1px_1px_0_rgba(255,255,255,1)] hover:-translate-y-0.5"
                 >
-                  <div className={`w-9 h-9 rounded-xl ${glassIcon} flex items-center justify-center`}>
+                  <div className={`w-9 h-9 rounded-xl ${glassIcon} flex items-center justify-center shrink-0`}>
                     <Check className="w-4 h-4 text-[#5e9e8f]" />
                   </div>
                   <span className="font-body font-medium text-foreground">{feature}</span>
@@ -463,9 +467,11 @@ export default function App() {
                   "Luxury typography.", "Premium gradients.", "Smooth micro-interactions.",
                   "Responsive experiences."
                 ].map((item, i) => (
-                  <motion.li key={i} variants={fadeSlideUp} className="flex items-center gap-3 text-foreground/80 font-body text-sm md:text-base">
-                    <Sparkles className="w-4 h-4 text-[#9aaae0] flex-shrink-0" />
-                    {item}
+                  <motion.li key={i} variants={fadeSlideUp} className="flex items-center gap-3 text-foreground/80 font-body text-sm md:text-base px-2.5 py-1.5 rounded-xl hover:bg-white/40 transition-colors">
+                    <div className="w-6 h-6 rounded-lg bg-white/90 border border-white shadow-[0_2px_6px_rgba(28,25,38,0.05),inset_0_1px_1px_rgba(255,255,255,1)] flex items-center justify-center shrink-0">
+                      <Sparkles className="w-3.5 h-3.5 text-[#8897c8]" />
+                    </div>
+                    <span>{item}</span>
                   </motion.li>
                 ))}
               </motion.ul>
@@ -557,12 +563,15 @@ export default function App() {
               <p className="text-muted-foreground font-body mb-8 text-base md:text-lg">
                 Whether you're building your first startup or your hundredth client project. Perfect for:
               </p>
-              <div className="grid grid-cols-2 gap-y-4 gap-x-2">
+              <div className="grid grid-cols-2 gap-2.5">
                 {[
                   "Founders", "Freelancers", "Web Designers", "Developers",
                   "Agencies", "Product Designers", "Marketing Teams", "Students", "Creators"
                 ].map((role, i) => (
-                  <div key={i} className="flex items-center gap-2.5 text-foreground/90 font-body">
+                  <div 
+                    key={i} 
+                    className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-white/[0.60] hover:bg-white/[0.88] border border-white/70 border-t-white shadow-[0_2px_8px_-2px_rgba(28,25,38,0.05),inset_0_1px_1px_rgba(255,255,255,0.95)] transition-all duration-200 hover:-translate-y-0.5 text-foreground/90 font-body cursor-default"
+                  >
                     <div className={`w-7 h-7 rounded-lg ${glassIcon} flex items-center justify-center flex-shrink-0`}>
                       <Check className="w-3.5 h-3.5 text-[#9a7eb8]" />
                     </div>
@@ -580,7 +589,6 @@ export default function App() {
 
       <CTAAndFooter />
       <Overlays />
-      <PremiumCursor />
     </div>
   )
 }
