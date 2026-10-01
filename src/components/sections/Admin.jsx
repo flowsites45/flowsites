@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus,
@@ -408,11 +408,24 @@ export default function Admin({ onBack, onViewGallery, onLogout }) {
     }
   }
 
-  const filtered = templates.filter(
-    (t) =>
-      t.title.toLowerCase().includes(search.toLowerCase()) ||
-      t.category.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = templates.filter((t) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    const titleMatch = (t.title || "").toLowerCase().includes(q);
+    const categoryMatch = (t.category || "").toLowerCase().includes(q);
+    const multiCatMatch = parseCategories(t.category).some((c) =>
+      c.toLowerCase().includes(q)
+    );
+    return titleMatch || categoryMatch || multiCatMatch;
+  });
+
+  const totalCategoriesCount = useMemo(() => {
+    const set = new Set(DEFAULT_CATEGORIES);
+    templates.forEach((t) => {
+      parseCategories(t.category).forEach((c) => set.add(c));
+    });
+    return set.size;
+  }, [templates]);
 
   const publishedCount = templates.filter((t) => t.published).length;
   const draftCount = templates.length - publishedCount;
@@ -511,7 +524,7 @@ export default function Admin({ onBack, onViewGallery, onLogout }) {
             { label: "Total Templates", value: templates.length, color: "text-white" },
             { label: "Published", value: publishedCount, color: "text-[#34d399]" },
             { label: "Drafts", value: draftCount, color: "text-[#fbbf24]" },
-            { label: "Categories", value: categories.length, color: "text-[#a78bfa]" },
+            { label: "Categories", value: totalCategoriesCount, color: "text-[#a78bfa]" },
           ].map((stat) => (
             <div
               key={stat.label}

@@ -9,7 +9,8 @@ import {
   Sparkles,
   MonitorSmartphone,
   MousePointerClick,
-  Code2
+  Code2,
+  Loader2
 } from "lucide-react"
 import { supabase } from "./lib/supabase.js"
 import { getUserProfile, createUserProfile } from "./lib/store.js"
@@ -52,6 +53,7 @@ export default function App() {
     return slugToView(path);
   })
   const [session, setSession] = useState(null)
+  const [authLoading, setAuthLoading] = useState(true);
   const [userProfile, setUserProfile] = useState(null);
   const [pendingCopyTemplateId, setPendingCopyTemplateId] = useState(null);
   const [pendingSubscribePlanId, setPendingSubscribePlanId] = useState(null);
@@ -75,11 +77,13 @@ export default function App() {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
       if (data.session?.user) loadUserProfile(data.session.user);
+      setAuthLoading(false);
     });
     const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession);
       if (newSession?.user) loadUserProfile(newSession.user);
       else setUserProfile(null);
+      setAuthLoading(false);
     });
     return () => listener.subscription.unsubscribe();
   }, []);
@@ -196,9 +200,24 @@ export default function App() {
   }
 
   if (view === "admin-auth") {
+    if (authLoading) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-[#070707]">
+          <Loader2 className="w-6 h-6 animate-spin text-white/40" />
+        </div>
+      );
+    }
     if (session) {
-      setView("admin");
-      return null;
+      return (
+        <Admin
+          onBack={() => setView("gallery")}
+          onViewGallery={() => setView("gallery")}
+          onLogout={async () => {
+            await supabase.auth.signOut();
+            setView("gallery");
+          }}
+        />
+      );
     }
     return (
       <AdminAuth
@@ -209,12 +228,30 @@ export default function App() {
   }
 
   if (view === "admin") {
+    if (authLoading) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-[#070707]">
+          <Loader2 className="w-6 h-6 animate-spin text-white/40" />
+        </div>
+      );
+    }
     if (!session) {
-      setView("admin-auth");
-      return null;
+      return (
+        <AdminAuth
+          onSuccess={() => setView("admin")}
+          onBack={() => setView("gallery")}
+        />
+      );
     }
     return (
-      <Admin onBack={() => setView("gallery")} onViewGallery={() => setView("gallery")} onLogout={async () => { await supabase.auth.signOut(); setView("gallery"); }} />
+      <Admin
+        onBack={() => setView("gallery")}
+        onViewGallery={() => setView("gallery")}
+        onLogout={async () => {
+          await supabase.auth.signOut();
+          setView("gallery");
+        }}
+      />
     );
   }
 
