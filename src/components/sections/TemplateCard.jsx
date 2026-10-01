@@ -4,6 +4,7 @@ import { Heart, Copy, Check, Play } from "lucide-react";
 import { OpticalButton } from "../ui/OpticalGlass.jsx";
 import LiquidMetalButton from "../ui/LiquidMetalButton.jsx";
 import LiquidMetalCardBorder from "../ui/LiquidMetalCardBorder.jsx";
+import { parseCategories } from "../../lib/categories.js";
 
 function formatLikes(value) {
   if (typeof value === "number" && value >= 1000) {
@@ -165,7 +166,12 @@ function TemplateCardComponent({
             <h3 className="font-display text-base sm:text-lg text-white leading-tight mb-0.5 sm:mb-1 truncate">
               {template.title}
             </h3>
-            <p className="text-[11px] sm:text-xs text-white/40 font-medium">{template.category}</p>
+            <p
+              className="text-[11px] sm:text-xs text-white/40 font-medium truncate"
+              title={parseCategories(template.category).join(", ")}
+            >
+              {parseCategories(template.category).join(" • ") || "Template"}
+            </p>
           </div>
 
           {/* Access-aware Copy button */}

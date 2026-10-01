@@ -25,6 +25,7 @@ import LiquidMetalButton from "../ui/LiquidMetalButton.jsx";
 import { OpticalButton } from "../ui/OpticalGlass.jsx";
 import { DotmCircular5 } from "../ui/dotm-circular-5";
 import TemplateCard from "./TemplateCard.jsx";
+import { parseCategories, hasCategory, isBackgroundAsset, BACKGROUND_CATEGORY } from "../../lib/categories.js";
 
 const categories = [
   "All",
@@ -262,14 +263,14 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
         const matchesSearch =
           !query ||
           t.title.toLowerCase().includes(query) ||
-          t.category.toLowerCase().includes(query);
-        const isBackground = t.category?.toLowerCase() === backgroundCategory.toLowerCase();
+          parseCategories(t.category).some((c) => c.toLowerCase().includes(query));
+        const isBackground = isBackgroundAsset(t);
         const matchesCategory =
           selectedCategory === backgroundCategory
             ? isBackground
             : selectedCategory === "All"
               ? !isBackground
-              : t.category?.toLowerCase() === selectedCategory.toLowerCase();
+              : hasCategory(t, selectedCategory);
         const matchesType = selectedType === "All" || t.type === selectedType;
         return matchesSearch && matchesCategory && matchesType;
       })
@@ -884,7 +885,7 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
                 const accessible = !session || canCopy(template, userProfile);
                 const badgeLabel = requiredPlanLabel(template.type);
                 const isCopied = copiedId === template.id;
-                const isBgAsset = template.category === backgroundCategory;
+                const isBgAsset = isBackgroundAsset(template);
                 const isLiked = liked.has(template.id);
                 const displayLikes = isLiked ? template.likes + 1 : template.likes;
 
@@ -980,9 +981,21 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
                 <div>
                   {/* Category Pill Badge & Close Button */}
                   <div className="flex items-center justify-between gap-3 mb-4">
-                    <span className="px-2.5 py-1 rounded-[6px] bg-white/[0.08] text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-white/70">
-                      {previewTemplate.category || "LANDING PAGE"}
-                    </span>
+                    <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+                      {parseCategories(previewTemplate.category).map((cat) => (
+                        <span
+                          key={cat}
+                          className="px-2.5 py-1 rounded-[6px] bg-white/[0.08] text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-white/70"
+                        >
+                          {cat}
+                        </span>
+                      ))}
+                      {parseCategories(previewTemplate.category).length === 0 && (
+                        <span className="px-2.5 py-1 rounded-[6px] bg-white/[0.08] text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-white/70">
+                          LANDING PAGE
+                        </span>
+                      )}
+                    </div>
 
                     <button
                       type="button"
@@ -1002,7 +1015,7 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
                   {/* Main Action CTA: Liquid Metal for Premium / Locked, Optical Glass for Free / Unlocked */}
                   {(() => {
                     const isCopied = copiedId === previewTemplate.id;
-                    const isBgAsset = previewTemplate.category === backgroundCategory;
+                    const isBgAsset = isBackgroundAsset(previewTemplate);
                     const typeNormalized = (previewTemplate.type || "Free").toLowerCase();
                     const isPremium =
                       typeNormalized === "premium" ||

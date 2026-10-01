@@ -20,6 +20,7 @@ import {
   ArrowUp,
   ArrowDown,
   Layers,
+  Shuffle,
 } from "lucide-react";
 import {
   getTemplates,
@@ -32,25 +33,17 @@ import {
   saveTemplatesOrder,
   captureVideoFirstFrame,
 } from "../../lib/store";
+import {
+  DEFAULT_CATEGORIES,
+  parseCategories,
+  serializeCategories,
+} from "../../lib/categories";
 
-const categories = [
-  "Hero Section",
-  "Landing Page",
-  "UI Components",
-  "Real Estate",
-  "Food",
-  "Health",
-  "Agency",
-  "Ecommerce",
-  "Portfolio",
-  "Saas",
-  "Dashboard",
-  "Background Assets",
-];
 const types = ["Free", "Premium", "Premium Plus"];
 
 const emptyForm = {
   title: "",
+  categories: ["Landing Page"],
   category: "Landing Page",
   type: "Free",
   image: "",
@@ -164,22 +157,55 @@ export default function Admin({ onBack, onViewGallery, onLogout }) {
     }
   }
 
+  const [randomizing, setRandomizing] = useState(false);
+
+  async function handleRandomizeOrder() {
+    if (templates.length <= 1) {
+      showToast("Not enough templates to randomize");
+      return;
+    }
+    setRandomizing(true);
+    // Fisher-Yates shuffle algorithm on all templates
+    const shuffled = [...templates];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+
+    const success = await saveTemplatesOrder(shuffled);
+    setRandomizing(false);
+    if (success) {
+      setTemplates(shuffled);
+      setOrderChanged(false);
+      showToast("Template order randomized and saved!");
+    } else {
+      showToast("Failed to save randomized order");
+    }
+  }
+
+  const [customCategory, setCustomCategory] = useState("");
+
   function handleOpenAdd() {
     setForm(emptyForm);
+    setCustomCategory("");
     setEditingId(null);
     setShowForm(true);
     setPreviewMode(false);
   }
 
   function handleOpenEdit(template) {
+    const initialCats = parseCategories(template.category);
+    const validCats = initialCats.length > 0 ? initialCats : ["Landing Page"];
     setForm({
       title: template.title,
-      category: template.category,
+      categories: validCats,
+      category: serializeCategories(validCats),
       type: template.type,
       image: template.image,
       video: template.video || "",
       prompt: template.prompt || "",
     });
+    setCustomCategory("");
     setEditingId(template.id);
     setShowForm(true);
     setPreviewMode(false);
@@ -189,7 +215,51 @@ export default function Admin({ onBack, onViewGallery, onLogout }) {
     setShowForm(false);
     setEditingId(null);
     setForm(emptyForm);
+    setCustomCategory("");
     setPreviewMode(false);
+  }
+
+  function handleToggleCategory(cat) {
+    setForm((prev) => {
+      const current = prev.categories || parseCategories(prev.category);
+      const exists = current.includes(cat);
+      const updated = exists ? current.filter((c) => c !== cat) : [...current, cat];
+      return {
+        ...prev,
+        categories: updated,
+        category: serializeCategories(updated),
+      };
+    });
+  }
+
+  function handleAddCustomCategory() {
+    const trimmed = customCategory.trim();
+    if (!trimmed) return;
+    setForm((prev) => {
+      const current = prev.categories || parseCategories(prev.category);
+      if (current.some((c) => c.toLowerCase() === trimmed.toLowerCase())) {
+        return prev;
+      }
+      const updated = [...current, trimmed];
+      return {
+        ...prev,
+        categories: updated,
+        category: serializeCategories(updated),
+      };
+    });
+    setCustomCategory("");
+  }
+
+  function handleRemoveCategory(cat) {
+    setForm((prev) => {
+      const current = prev.categories || parseCategories(prev.category);
+      const updated = current.filter((c) => c !== cat);
+      return {
+        ...prev,
+        categories: updated,
+        category: serializeCategories(updated),
+      };
+    });
   }
 
   async function handleCaptureFromVideo(sourceVideo) {
@@ -242,9 +312,17 @@ export default function Admin({ onBack, onViewGallery, onLogout }) {
       }
     }
 
+    const activeCats =
+      form.categories && form.categories.length > 0
+        ? form.categories
+        : parseCategories(form.category);
+    const finalCategories = activeCats.length > 0 ? activeCats : ["Landing Page"];
+    const serializedCat = serializeCategories(finalCategories);
+
     const finalForm = {
       ...form,
       title: form.title.trim() || "Untitled",
+      category: serializedCat,
       image: imageToSave,
       video: form.video.trim() || "",
       prompt: form.prompt.trim() || "",
@@ -375,6 +453,20 @@ export default function Admin({ onBack, onViewGallery, onLogout }) {
                 <Eye className="w-4 h-4" />
                 View Gallery
               </button>
+              <button
+                onClick={handleRandomizeOrder}
+                disabled={randomizing || loading || templates.length <= 1}
+                className="lg-pill flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-sm font-medium text-white/80 hover:text-white transition-all hover:border-white/20 active:scale-95 disabled:opacity-50 cursor-pointer"
+                title="Shuffle all templates into a randomized order"
+              >
+                {randomizing ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-[#a78bfa]" />
+                ) : (
+                  <Shuffle className="w-4 h-4 text-[#a78bfa]" />
+                )}
+                <span className="hidden sm:inline">Randomize Order</span>
+                <span className="sm:hidden">Randomize</span>
+              </button>
               {orderChanged && (
                 <button
                   onClick={handleSaveOrder}
@@ -431,8 +523,8 @@ export default function Admin({ onBack, onViewGallery, onLogout }) {
           ))}
         </div>
 
-        {/* Search — Liquid Glass Input */}
-        <div className="flex items-center gap-3 mb-6">
+        {/* Search & Actions Bar */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-6">
           <div className="relative flex-1">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
             <input
@@ -443,6 +535,20 @@ export default function Admin({ onBack, onViewGallery, onLogout }) {
               className="lg-input w-full rounded-full pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-white/30 focus:outline-none transition-colors"
             />
           </div>
+
+          <button
+            onClick={handleRandomizeOrder}
+            disabled={randomizing || loading || templates.length <= 1}
+            className="lg-pill flex items-center justify-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium text-white/80 hover:text-white border border-white/10 hover:border-white/20 transition-all hover:bg-white/[0.06] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-sm shrink-0"
+            title="Shuffle all templates into a randomized order"
+          >
+            {randomizing ? (
+              <Loader2 className="w-4 h-4 animate-spin text-[#a78bfa]" />
+            ) : (
+              <Shuffle className="w-4 h-4 text-[#a78bfa]" />
+            )}
+            <span>Randomize Order</span>
+          </button>
         </div>
 
         {/* Templates Table — Liquid Glass */}
@@ -496,8 +602,36 @@ export default function Admin({ onBack, onViewGallery, onLogout }) {
                 </div>
 
                 {/* Category */}
-                <div className="col-span-2">
-                  <span className="text-sm text-white/60">{template.category}</span>
+                <div className="col-span-2 flex flex-wrap items-center gap-1.5">
+                  {(() => {
+                    const cats = parseCategories(template.category);
+                    if (cats.length === 0) {
+                      return <span className="text-xs text-white/30">None</span>;
+                    }
+                    const visible = cats.slice(0, 2);
+                    const remaining = cats.length - visible.length;
+                    return (
+                      <>
+                        {visible.map((cat) => (
+                          <span
+                            key={cat}
+                            className="text-xs px-2 py-0.5 rounded-md bg-white/[0.06] text-white/75 border border-white/10 truncate max-w-[120px]"
+                            title={cat}
+                          >
+                            {cat}
+                          </span>
+                        ))}
+                        {remaining > 0 && (
+                          <span
+                            className="text-[11px] px-1.5 py-0.5 rounded-md bg-[#a78bfa]/15 text-[#c4b5fd] border border-[#a78bfa]/25 font-medium cursor-help"
+                            title={cats.slice(2).join(", ")}
+                          >
+                            +{remaining}
+                          </span>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
 
                 {/* Type */}
@@ -650,10 +784,15 @@ export default function Admin({ onBack, onViewGallery, onLogout }) {
                       )}
                     </div>
                     <h3 className="font-display text-3xl text-white mb-2">{form.title || "Untitled"}</h3>
-                    <div className="flex items-center gap-2 mb-4">
-                      <span className="lg-badge text-xs font-semibold px-2 py-0.5 rounded-full text-white/60">
-                        {form.category}
-                      </span>
+                    <div className="flex flex-wrap items-center gap-1.5 mb-4">
+                      {parseCategories(form.categories || form.category).map((cat) => (
+                        <span
+                          key={cat}
+                          className="lg-badge text-xs font-semibold px-2.5 py-0.5 rounded-full text-white/70"
+                        >
+                          {cat}
+                        </span>
+                      ))}
                       <span
                         className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
                           form.type === "Premium Plus"
@@ -690,40 +829,111 @@ export default function Admin({ onBack, onViewGallery, onLogout }) {
                       />
                     </div>
 
-                    {/* Category + Type */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-medium text-white/30 uppercase tracking-wider mb-2">
-                          Category
+                    {/* Categories Multi-Select */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="block text-xs font-medium text-white/40 uppercase tracking-wider">
+                          Categories <span className="text-white/20 normal-case">(Select multiple or add custom)</span>
                         </label>
-                        <select
-                          value={form.category}
-                          onChange={(e) => setForm({ ...form, category: e.target.value })}
-                          className="lg-input w-full rounded-xl px-4 py-3 text-sm text-white focus:outline-none transition-colors"
-                        >
-                          {categories.map((c) => (
-                            <option key={c} value={c} className="bg-[#121215]">
-                              {c}
-                            </option>
-                          ))}
-                        </select>
+                        <span className="text-xs text-white/40">
+                          {(form.categories || parseCategories(form.category)).length} selected
+                        </span>
                       </div>
+
+                      {/* Active Categories Tags */}
+                      <div className="flex flex-wrap items-center gap-1.5 min-h-[44px] p-2.5 rounded-xl bg-white/[0.03] border border-white/8">
+                        {(form.categories || parseCategories(form.category)).length === 0 ? (
+                          <span className="text-xs text-white/30 italic px-1">
+                            No categories selected. Choose presets below or type a custom one.
+                          </span>
+                        ) : (
+                          (form.categories || parseCategories(form.category)).map((cat) => (
+                            <span
+                              key={cat}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-[#a78bfa]/15 text-[#c4b5fd] border border-[#a78bfa]/30 transition-all shadow-sm"
+                            >
+                              <span>{cat}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveCategory(cat)}
+                                className="hover:text-white hover:bg-white/10 rounded p-0.5 transition-colors cursor-pointer"
+                                title={`Remove ${cat}`}
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </span>
+                          ))
+                        )}
+                      </div>
+
+                      {/* Preset Category Chips */}
                       <div>
-                        <label className="block text-xs font-medium text-white/30 uppercase tracking-wider mb-2">
-                          Type
-                        </label>
-                        <select
-                          value={form.type}
-                          onChange={(e) => setForm({ ...form, type: e.target.value })}
-                          className="lg-input w-full rounded-xl px-4 py-3 text-sm text-white focus:outline-none transition-colors"
-                        >
-                          {types.map((t) => (
-                            <option key={t} value={t} className="bg-[#121215]">
-                              {t}
-                            </option>
-                          ))}
-                        </select>
+                        <p className="text-[11px] text-white/30 uppercase tracking-wider mb-2 font-medium">Quick Presets</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {DEFAULT_CATEGORIES.map((cat) => {
+                            const isSelected = (form.categories || parseCategories(form.category)).includes(cat);
+                            return (
+                              <button
+                                key={cat}
+                                type="button"
+                                onClick={() => handleToggleCategory(cat)}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                                  isSelected
+                                    ? "bg-white text-[#070707] font-semibold shadow-md"
+                                    : "bg-white/[0.04] text-white/60 hover:text-white hover:bg-white/[0.08] border border-white/5"
+                                }`}
+                              >
+                                {isSelected && <Check className="w-3 h-3 text-[#070707]" />}
+                                <span>{cat}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
+
+                      {/* Custom Category Input */}
+                      <div className="flex items-center gap-2 pt-1">
+                        <input
+                          type="text"
+                          value={customCategory}
+                          onChange={(e) => setCustomCategory(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              handleAddCustomCategory();
+                            }
+                          }}
+                          placeholder="Add custom category..."
+                          className="lg-input flex-1 rounded-xl px-4 py-2.5 text-xs text-white placeholder:text-white/20 focus:outline-none transition-colors"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleAddCustomCategory}
+                          disabled={!customCategory.trim()}
+                          className="lg-pill flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-medium text-white/80 hover:text-white border border-white/10 hover:border-white/20 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-all shrink-0"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Add</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Type */}
+                    <div>
+                      <label className="block text-xs font-medium text-white/30 uppercase tracking-wider mb-2">
+                        Type
+                      </label>
+                      <select
+                        value={form.type}
+                        onChange={(e) => setForm({ ...form, type: e.target.value })}
+                        className="lg-input w-full rounded-xl px-4 py-3 text-sm text-white focus:outline-none transition-colors"
+                      >
+                        {types.map((t) => (
+                          <option key={t} value={t} className="bg-[#121215]">
+                            {t}
+                          </option>
+                        ))}
+                      </select>
                     </div>
 
                     {/* Thumbnail Image */}
