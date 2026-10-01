@@ -14,6 +14,7 @@ const premiumFeatures = [
 ];
 
 const premiumPlusFeatures = [
+  { text: "Unlimited prompt copies & downloads", included: true },
   { text: "Unlimited access to all templates", included: true },
   { text: "Background assets", included: true },
   { text: "Unlimited access to all future assets", included: true },

@@ -357,7 +357,7 @@ export default function App() {
         </section>
       </div>
 
-      <div className="relative z-10 flex flex-col items-center pb-24 w-full bg-[#f5f2ee] cosmic-grain">
+      <div className="relative z-10 flex flex-col items-center pb-16 sm:pb-24 w-full bg-[#f5f2ee] cosmic-grain overflow-x-hidden">
         
         {/* Soft Pastel Ambient Lighting Blobs */}
         <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden mix-blend-multiply opacity-60" style={{ contain: "layout style paint" }}>
@@ -369,21 +369,21 @@ export default function App() {
         </div>
 
         {/* 1. LOGO CLOUD / INTEGRATIONS */}
-        <section className="w-full max-w-6xl mx-auto px-6 py-16 text-center">
+        <section className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-12 sm:py-16 text-center">
           <motion.p 
             variants={fadeSlideUp} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-100px" }}
-            className="text-sm font-medium text-muted-foreground mb-6 font-body uppercase tracking-widest"
+            className="text-xs sm:text-sm font-medium text-muted-foreground mb-5 sm:mb-6 font-body uppercase tracking-widest"
           >
             Built for Modern AI Development. Works seamlessly with
           </motion.p>
-          <motion.div variants={staggerContainer} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-100px" }} className="flex flex-wrap justify-center gap-3 md:gap-4">
+          <motion.div variants={staggerContainer} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-100px" }} className="flex flex-wrap justify-center gap-2 sm:gap-3 md:gap-4">
             {["Claude Code", "Antigravity", "Codex", "Cursor", "Lovable", "Bolt", "Windsurf", "Replit"].map((tool) => (
               <motion.div 
                 key={tool}
                 variants={fadeSlideUp}
                 whileHover={elasticButton.hover}
                 whileTap={elasticButton.tap}
-                className={`${glassPill} text-sm md:text-base font-medium cursor-default`}
+                className={`${glassPill} text-xs sm:text-sm md:text-base font-medium cursor-default px-3.5 sm:px-5 py-1.5 sm:py-2`}
               >
                 <div className={glassSheen} />
                 {tool}
@@ -393,12 +393,12 @@ export default function App() {
         </section>
 
         {/* 2. HOW IT WORKS */}
-        <section className="w-full max-w-6xl mx-auto px-6 py-24">
-          <motion.div variants={staggerContainer} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-100px" }} className="text-center mb-16">
-            <motion.h2 variants={fadeSlideUp} className="font-display text-4xl md:text-5xl text-foreground mb-4">How It Works</motion.h2>
-            <motion.p variants={fadeSlideUp} className="text-muted-foreground text-lg font-body max-w-2xl mx-auto">Design Like a Pro in Three Simple Steps</motion.p>
+        <section className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-24">
+          <motion.div variants={staggerContainer} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-100px" }} className="text-center mb-10 sm:mb-16">
+            <motion.h2 variants={fadeSlideUp} className="font-display text-3xl sm:text-4xl md:text-5xl text-foreground mb-3 sm:mb-4">How It Works</motion.h2>
+            <motion.p variants={fadeSlideUp} className="text-muted-foreground text-sm sm:text-lg font-body max-w-2xl mx-auto">Design Like a Pro in Three Simple Steps</motion.p>
           </motion.div>
-          <motion.div variants={staggerContainer} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-100px" }} className="grid md:grid-cols-3 gap-6 md:gap-8">
+          <motion.div variants={staggerContainer} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-100px" }} className="grid md:grid-cols-3 gap-5 sm:gap-6 md:gap-8 w-full">
             {[
               { icon: Search, title: "1. Browse", desc: "Discover hundreds of professionally engineered website prompts across dozens of industries and design styles." },
               { icon: Copy, title: "2. Copy", desc: "Copy a prompt with one click. Every prompt includes layout, animations, colors, typography, and UX instructions." },
@@ -408,35 +408,35 @@ export default function App() {
                 key={step.title}
                 variants={fadeSlideUp}
                 whileHover={{ y: -6, transition: { type: "spring", stiffness: 300, damping: 20 } }}
-                className={`${glassCard} p-8 md:p-10 flex flex-col items-center text-center group cursor-default`}
+                className={`${glassCard} p-6 sm:p-8 md:p-10 flex flex-col items-center text-center group cursor-default w-full`}
               >
                 <div className={glassSheen} />
-                <div className={`w-16 h-16 rounded-2xl ${glassIcon} flex items-center justify-center mb-6 transition-transform duration-300 group-hover:scale-105`}>
-                  <step.icon className="w-7 h-7 text-foreground" />
+                <div className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl ${glassIcon} flex items-center justify-center mb-5 sm:mb-6 transition-transform duration-300 group-hover:scale-105`}>
+                  <step.icon className="w-6 h-6 sm:w-7 sm:h-7 text-foreground" />
                 </div>
-                <h3 className="text-xl font-bold font-display mb-3 text-foreground">{step.title}</h3>
-                <p className="text-muted-foreground font-body text-sm leading-relaxed">{step.desc}</p>
+                <h3 className="text-lg sm:text-xl font-bold font-display mb-2 sm:mb-3 text-foreground">{step.title}</h3>
+                <p className="text-muted-foreground font-body text-xs sm:text-sm leading-relaxed">{step.desc}</p>
               </motion.div>
             ))}
           </motion.div>
         </section>
 
         {/* 3. WHY CHOOSE US */}
-        <section className="w-full max-w-6xl mx-auto px-6 py-24">
-          <motion.div variants={staggerContainer} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-100px" }} className={`w-full ${glassCard} p-8 md:p-16 flex flex-col md:flex-row gap-12 items-center`}>
+        <section className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-24">
+          <motion.div variants={staggerContainer} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-100px" }} className={`w-full ${glassCard} p-6 sm:p-8 md:p-14 lg:p-16 flex flex-col md:flex-row gap-8 md:gap-12 items-center`}>
             <div className={glassSheen} />
-            <div className="flex-1">
-              <motion.h2 variants={fadeSlideUp} className="font-display text-4xl md:text-5xl text-foreground mb-4">More Than Templates.</motion.h2>
-              <motion.h3 variants={fadeSlideUp} className="text-xl font-body font-semibold text-foreground/80 mb-6">We Build Design Intelligence.</motion.h3>
-              <motion.p variants={fadeSlideUp} className="text-muted-foreground font-body text-base leading-relaxed mb-4">
+            <div className="flex-1 w-full min-w-0">
+              <motion.h2 variants={fadeSlideUp} className="font-display text-3xl sm:text-4xl md:text-5xl text-foreground mb-3 sm:mb-4">More Than Templates.</motion.h2>
+              <motion.h3 variants={fadeSlideUp} className="text-lg sm:text-xl font-body font-semibold text-foreground/80 mb-4 sm:mb-6">We Build Design Intelligence.</motion.h3>
+              <motion.p variants={fadeSlideUp} className="text-muted-foreground font-body text-sm sm:text-base leading-relaxed mb-3 sm:mb-4">
                 Anyone can copy a template.
               </motion.p>
-              <motion.p variants={fadeSlideUp} className="text-muted-foreground font-body text-base leading-relaxed mb-6">
+              <motion.p variants={fadeSlideUp} className="text-muted-foreground font-body text-sm sm:text-base leading-relaxed mb-6">
                 Great websites come from thoughtful layouts, clear hierarchy, beautiful motion, and exceptional user experience.
                 Every prompt is carefully engineered by designers to help AI generate websites that feel handcrafted—not generic.
               </motion.p>
             </div>
-            <motion.div variants={staggerContainer} className="flex-1 w-full space-y-3">
+            <motion.div variants={staggerContainer} className="flex-1 w-full space-y-2.5 sm:space-y-3 min-w-0">
               {[
                 "Pixel-perfect layouts",
                 "Interactive Motions",
@@ -447,12 +447,12 @@ export default function App() {
                 <motion.div 
                   key={feature}
                   variants={fadeSlideUp}
-                  className="flex items-center gap-4 bg-gradient-to-b from-white/[0.88] via-white/[0.72] to-white/[0.58] backdrop-blur-md border border-white/80 border-t-white rounded-2xl p-4 shadow-[0_4px_14px_-3px_rgba(28,25,38,0.06),0_1px_3px_0_rgba(28,25,38,0.03),inset_0_1px_1px_0_rgba(255,255,255,0.95)] transition-all duration-200 hover:bg-white/[0.95] hover:shadow-[0_8px_20px_-4px_rgba(28,25,38,0.09),inset_0_1px_1px_0_rgba(255,255,255,1)] hover:-translate-y-0.5"
+                  className="flex items-center gap-3 sm:gap-4 bg-gradient-to-b from-white/[0.88] via-white/[0.72] to-white/[0.58] backdrop-blur-md border border-white/80 border-t-white rounded-xl sm:rounded-2xl p-3.5 sm:p-4 shadow-[0_4px_14px_-3px_rgba(28,25,38,0.06),0_1px_3px_0_rgba(28,25,38,0.03),inset_0_1px_1px_0_rgba(255,255,255,0.95)] transition-all duration-200 hover:bg-white/[0.95] hover:shadow-[0_8px_20px_-4px_rgba(28,25,38,0.09),inset_0_1px_1px_0_rgba(255,255,255,1)] hover:-translate-y-0.5"
                 >
-                  <div className={`w-9 h-9 rounded-xl ${glassIcon} flex items-center justify-center shrink-0`}>
-                    <Check className="w-4 h-4 text-[#5e9e8f]" />
+                  <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl ${glassIcon} flex items-center justify-center shrink-0`}>
+                    <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#5e9e8f]" />
                   </div>
-                  <span className="font-body font-medium text-foreground">{feature}</span>
+                  <span className="font-body font-medium text-xs sm:text-sm md:text-base text-foreground">{feature}</span>
                 </motion.div>
               ))}
             </motion.div>
@@ -460,10 +460,10 @@ export default function App() {
         </section>
 
         {/* 4. WEBSITE CATEGORIES */}
-        <section className="w-full max-w-6xl mx-auto px-6 py-24 text-center">
-          <motion.h2 variants={fadeSlideUp} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-100px" }} className="font-display text-4xl md:text-5xl text-foreground mb-4">Build Any Type of Website</motion.h2>
-          <motion.p variants={fadeSlideUp} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-100px" }} className="text-muted-foreground text-lg font-body max-w-2xl mx-auto mb-12">Whether you're launching a Business or building for clients, we've got prompts designed for every niche.</motion.p>
-          <motion.div variants={staggerContainer} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-100px" }} className="flex flex-wrap justify-center gap-3">
+        <section className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-24 text-center">
+          <motion.h2 variants={fadeSlideUp} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-100px" }} className="font-display text-3xl sm:text-4xl md:text-5xl text-foreground mb-3 sm:mb-4">Build Any Type of Website</motion.h2>
+          <motion.p variants={fadeSlideUp} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-100px" }} className="text-muted-foreground text-sm sm:text-lg font-body max-w-2xl mx-auto mb-8 sm:mb-12">Whether you're launching a Business or building for clients, we've got prompts designed for every niche.</motion.p>
+          <motion.div variants={staggerContainer} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-100px" }} className="flex flex-wrap justify-center gap-2 sm:gap-3">
             {[
               "Agencies", "SaaS", "Ecommerce", "Portfolios", "Healthcare", 
               "Real Estate", "Restaurants", "Personal Brands", "Beauty", 
@@ -474,7 +474,7 @@ export default function App() {
                 variants={fadeSlideUp}
                 whileHover={elasticButton.hover}
                 whileTap={elasticButton.tap}
-                className={`${glassChip} px-6 py-3 text-foreground/90 font-medium font-body text-sm md:text-base cursor-pointer transition-colors hover:from-white/80 hover:to-white/50`}
+                className={`${glassChip} px-4 sm:px-6 py-2 sm:py-3 text-foreground/90 font-medium font-body text-xs sm:text-sm md:text-base cursor-pointer transition-colors hover:from-white/80 hover:to-white/50`}
               >
                 {category}
               </motion.div>
@@ -483,30 +483,30 @@ export default function App() {
         </section>
 
         {/* 5 & 6. VISUAL SHOWCASE & MOTION LIBRARY */}
-        <section className="w-full max-w-6xl mx-auto px-6 py-24">
-          <motion.div variants={staggerContainer} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-100px" }} className="grid md:grid-cols-2 gap-8 md:gap-12">
+        <section className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-24">
+          <motion.div variants={staggerContainer} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-100px" }} className="grid md:grid-cols-2 gap-6 sm:gap-8 md:gap-12 w-full min-w-0">
             
             <motion.div 
               variants={fadeSlideUp}
-              className={`${glassCard} p-8 md:p-12`}
+              className={`${glassCard} p-6 sm:p-8 md:p-12 w-full min-w-0`}
             >
               <div className={glassSheen} />
-              <div className={`w-14 h-14 rounded-2xl ${glassIcon} flex items-center justify-center mb-6`}>
-                <MonitorSmartphone className="w-7 h-7 text-foreground" />
+              <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl ${glassIcon} flex items-center justify-center mb-5 sm:mb-6`}>
+                <MonitorSmartphone className="w-6 h-6 sm:w-7 sm:h-7 text-foreground" />
               </div>
-              <h2 className="font-display text-3xl text-foreground mb-2">Visual Showcase</h2>
-              <p className="text-muted-foreground font-body mb-8 text-sm md:text-base">Every Prompt Generates Beautiful Interfaces designed to impress from the very first scroll.</p>
+              <h2 className="font-display text-2xl sm:text-3xl text-foreground mb-2">Visual Showcase</h2>
+              <p className="text-muted-foreground font-body mb-6 sm:mb-8 text-xs sm:text-sm md:text-base">Every Prompt Generates Beautiful Interfaces designed to impress from the very first scroll.</p>
               
-              <motion.ul variants={staggerContainer} initial="hidden" whileInView="show" className="space-y-3">
+              <motion.ul variants={staggerContainer} initial="hidden" whileInView="show" className="space-y-2.5 sm:space-y-3">
                 {[
                   "Modern hero sections.", "Animated pricing tables.", "Interactive feature cards.",
                   "Glassmorphism dashboards.", "Bento layouts.", "Scrolling storytelling.",
                   "Luxury typography.", "Premium gradients.", "Smooth micro-interactions.",
                   "Responsive experiences."
                 ].map((item, i) => (
-                  <motion.li key={i} variants={fadeSlideUp} className="flex items-center gap-3 text-foreground/80 font-body text-sm md:text-base px-2.5 py-1.5 rounded-xl hover:bg-white/40 transition-colors">
-                    <div className="w-6 h-6 rounded-lg bg-white/90 border border-white shadow-[0_2px_6px_rgba(28,25,38,0.05),inset_0_1px_1px_rgba(255,255,255,1)] flex items-center justify-center shrink-0">
-                      <Sparkles className="w-3.5 h-3.5 text-[#8897c8]" />
+                  <motion.li key={i} variants={fadeSlideUp} className="flex items-center gap-2.5 sm:gap-3 text-foreground/80 font-body text-xs sm:text-sm md:text-base px-2.5 py-1.5 rounded-xl hover:bg-white/40 transition-colors">
+                    <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-white/90 border border-white shadow-[0_2px_6px_rgba(28,25,38,0.05),inset_0_1px_1px_rgba(255,255,255,1)] flex items-center justify-center shrink-0">
+                      <Sparkles className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[#8897c8]" />
                     </div>
                     <span>{item}</span>
                   </motion.li>
@@ -516,14 +516,14 @@ export default function App() {
 
             <motion.div 
               variants={fadeSlideUp}
-              className={`${glassCard} p-8 md:p-12`}
+              className={`${glassCard} p-6 sm:p-8 md:p-12 w-full min-w-0`}
             >
               <div className={glassSheen} />
-              <div className={`w-14 h-14 rounded-2xl ${glassIcon} flex items-center justify-center mb-6`}>
-                <MousePointerClick className="w-7 h-7 text-foreground" />
+              <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl ${glassIcon} flex items-center justify-center mb-5 sm:mb-6`}>
+                <MousePointerClick className="w-6 h-6 sm:w-7 sm:h-7 text-foreground" />
               </div>
-              <h2 className="font-display text-3xl text-foreground mb-2">Motion Library</h2>
-              <p className="text-muted-foreground font-body mb-8 text-sm md:text-base">Bring Your Website to Life. Beautiful motion separates average sites from unforgettable experiences.</p>
+              <h2 className="font-display text-2xl sm:text-3xl text-foreground mb-2">Motion Library</h2>
+              <p className="text-muted-foreground font-body mb-6 sm:mb-8 text-xs sm:text-sm md:text-base">Bring Your Website to Life. Beautiful motion separates average sites from unforgettable experiences.</p>
               
               <motion.div variants={staggerContainer} initial="hidden" whileInView="show" className="flex flex-wrap gap-2">
                 {[
@@ -532,7 +532,7 @@ export default function App() {
                   "Card hover effects", "Page transitions", "Loading animations", "3D transforms",
                   "Background particles", "Interactive sections"
                 ].map((item, i) => (
-                  <motion.span key={i} variants={fadeSlideUp} whileHover={elasticButton.hover} className={`cursor-default text-xs md:text-sm font-medium ${glassChip} px-3 py-1.5 text-foreground/80 transition-colors hover:from-white/80 hover:to-white/50`}>
+                  <motion.span key={i} variants={fadeSlideUp} whileHover={elasticButton.hover} className={`cursor-default text-xs sm:text-sm font-medium ${glassChip} px-2.5 sm:px-3 py-1 sm:py-1.5 text-foreground/80 transition-colors hover:from-white/80 hover:to-white/50`}>
                     {item}
                   </motion.span>
                 ))}
@@ -543,10 +543,10 @@ export default function App() {
         </section>
 
         {/* 7. PREMIUM COMPONENTS */}
-        <section className="w-full max-w-6xl mx-auto px-6 py-24 text-center">
-          <motion.h2 variants={fadeSlideUp} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-100px" }} className="font-display text-4xl md:text-5xl text-foreground mb-4">Premium Components</motion.h2>
-          <motion.p variants={fadeSlideUp} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-100px" }} className="text-muted-foreground text-lg font-body max-w-2xl mx-auto mb-12">Copy Individual Sections. Need only a pricing section? Or a hero? Browse hundreds of standalone components.</motion.p>
-          <motion.div variants={staggerContainer} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-100px" }} className="flex flex-wrap justify-center gap-3">
+        <section className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-24 text-center">
+          <motion.h2 variants={fadeSlideUp} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-100px" }} className="font-display text-3xl sm:text-4xl md:text-5xl text-foreground mb-3 sm:mb-4">Premium Components</motion.h2>
+          <motion.p variants={fadeSlideUp} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-100px" }} className="text-muted-foreground text-sm sm:text-lg font-body max-w-2xl mx-auto mb-8 sm:mb-12">Copy Individual Sections. Need only a pricing section? Or a hero? Browse hundreds of standalone components.</motion.p>
+          <motion.div variants={staggerContainer} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-100px" }} className="flex flex-wrap justify-center gap-2 sm:gap-3">
             {[
               "Hero Sections", "Features", "Pricing Tables", "Testimonials", "FAQs", 
               "Footers", "Contact Forms", "Navigation", "Dashboards", "CTAs", 
@@ -558,7 +558,7 @@ export default function App() {
                 variants={fadeSlideUp}
                 whileHover={elasticButton.hover}
                 whileTap={elasticButton.tap}
-                className={`${glassPill} text-sm md:text-base cursor-default`}
+                className={`${glassPill} text-xs sm:text-sm md:text-base cursor-default px-3.5 sm:px-5 py-1.5 sm:py-2`}
               >
                 <div className={glassSheen} />
                 {comp}
@@ -568,25 +568,25 @@ export default function App() {
         </section>
 
         {/* 8. MODERN AI COMPATIBILITY & WHO IT'S FOR */}
-        <section id="features" className="w-full max-w-6xl mx-auto px-6 py-24 scroll-mt-20">
-          <motion.div variants={staggerContainer} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-100px" }} className="grid md:grid-cols-2 gap-8 md:gap-12">
+        <section id="features" className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-24 scroll-mt-20">
+          <motion.div variants={staggerContainer} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-100px" }} className="grid md:grid-cols-2 gap-6 sm:gap-8 md:gap-12 w-full min-w-0">
             
-            <motion.div variants={fadeSlideUp} className={`${glassCard} p-8 md:p-16 flex flex-col justify-center`}>
+            <motion.div variants={fadeSlideUp} className={`${glassCard} p-6 sm:p-8 md:p-14 lg:p-16 flex flex-col justify-center min-w-0 w-full`}>
               <div className={glassSheen} />
-              <div className={`w-14 h-14 rounded-2xl ${glassIcon} flex items-center justify-center mb-6`}>
-                <Code2 className="w-7 h-7 text-foreground" />
+              <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl ${glassIcon} flex items-center justify-center mb-5 sm:mb-6`}>
+                <Code2 className="w-6 h-6 sm:w-7 sm:h-7 text-foreground" />
               </div>
-              <h2 className="font-display text-3xl md:text-4xl text-foreground mb-6">Built for Modern AI Development</h2>
-              <p className="text-muted-foreground font-body mb-8 text-base md:text-lg leading-relaxed">
+              <h2 className="font-display text-2xl sm:text-3xl md:text-4xl text-foreground mb-4 sm:mb-6">Built for Modern AI Development</h2>
+              <p className="text-muted-foreground font-body mb-6 sm:mb-8 text-sm sm:text-base md:text-lg leading-relaxed">
                 No outdated templates.<br/>
                 No unnecessary complexity.<br/>
                 Just prompts built specifically for modern AI coding workflows.
               </p>
-              <div className="space-y-4">
-                <p className="font-semibold text-foreground font-body">Compatible with:</p>
-                <div className="flex flex-wrap gap-2">
+              <div className="space-y-3 sm:space-y-4">
+                <p className="font-semibold text-foreground font-body text-xs sm:text-sm">Compatible with:</p>
+                <div className="flex flex-wrap gap-1.5 sm:gap-2">
                   {["React", "Next.js", "Tailwind CSS", "Framer Motion", "Shadcn UI", "Cursor", "Claude Code", "Codex", "Lovable", "Bolt"].map(tech => (
-                    <motion.span key={tech} whileHover={elasticButton.hover} className={`cursor-default text-sm font-medium ${glassChip} px-3 py-1.5 text-foreground/80`}>
+                    <motion.span key={tech} whileHover={elasticButton.hover} className={`cursor-default text-xs sm:text-sm font-medium ${glassChip} px-2.5 sm:px-3 py-1 sm:py-1.5 text-foreground/80`}>
                       {tech}
                     </motion.span>
                   ))}
@@ -594,25 +594,25 @@ export default function App() {
               </div>
             </motion.div>
 
-            <motion.div variants={fadeSlideUp} className={`${glassCard} p-8 md:p-16 flex flex-col justify-center`}>
+            <motion.div variants={fadeSlideUp} className={`${glassCard} p-6 sm:p-8 md:p-14 lg:p-16 flex flex-col justify-center min-w-0 w-full`}>
               <div className={glassSheen} />
-              <h2 className="font-display text-3xl md:text-4xl text-foreground mb-6">Who It's For</h2>
-              <p className="text-muted-foreground font-body mb-8 text-base md:text-lg">
+              <h2 className="font-display text-2xl sm:text-3xl md:text-4xl text-foreground mb-3 sm:mb-4">Who It's For</h2>
+              <p className="text-muted-foreground font-body mb-6 sm:mb-8 text-xs sm:text-sm md:text-base leading-relaxed">
                 Whether you're building your first startup or your hundredth client project. Perfect for:
               </p>
-              <div className="grid grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-2.5 w-full">
                 {[
                   "Founders", "Freelancers", "Web Designers", "Developers",
                   "Agencies", "Product Designers", "Marketing Teams", "Students", "Creators"
                 ].map((role, i) => (
                   <div 
                     key={i} 
-                    className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-white/[0.60] hover:bg-white/[0.88] border border-white/70 border-t-white shadow-[0_2px_8px_-2px_rgba(28,25,38,0.05),inset_0_1px_1px_rgba(255,255,255,0.95)] transition-all duration-200 hover:-translate-y-0.5 text-foreground/90 font-body cursor-default"
+                    className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-white/[0.60] hover:bg-white/[0.88] border border-white/70 border-t-white shadow-[0_2px_8px_-2px_rgba(28,25,38,0.05),inset_0_1px_1px_rgba(255,255,255,0.95)] transition-all duration-200 hover:-translate-y-0.5 text-foreground/90 font-body cursor-default min-w-0"
                   >
-                    <div className={`w-7 h-7 rounded-lg ${glassIcon} flex items-center justify-center flex-shrink-0`}>
-                      <Check className="w-3.5 h-3.5 text-[#9a7eb8]" />
+                    <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-lg ${glassIcon} flex items-center justify-center shrink-0`}>
+                      <Check className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[#9a7eb8]" />
                     </div>
-                    <span className="font-medium text-sm md:text-base capitalize">{role}</span>
+                    <span className="font-medium text-xs sm:text-sm md:text-base capitalize truncate">{role}</span>
                   </div>
                 ))}
               </div>

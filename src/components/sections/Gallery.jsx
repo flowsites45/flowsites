@@ -15,11 +15,13 @@ import {
   Zap,
   Loader2,
   Lock,
+  Crown,
+  AlertCircle,
 } from "lucide-react";
 import { SiClaudecode, SiCursor } from "react-icons/si";
 import { RiOpenaiFill } from "react-icons/ri";
 import { getPublishedTemplates, incrementLikes } from "../../lib/store";
-import { canCopy, requiredPlanLabel } from "../../lib/access.js";
+import { canCopy, requiredPlanLabel, getDailyCopyStats, recordDailyCopy, DAILY_PREMIUM_LIMIT } from "../../lib/access.js";
 import UserProfileMenu from "../UserProfileMenu.jsx";
 import LiquidMetalButton from "../ui/LiquidMetalButton.jsx";
 import { OpticalButton } from "../ui/OpticalGlass.jsx";
@@ -145,6 +147,27 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [liked, setLiked] = useState(new Set());
   const [previewTemplate, setPreviewTemplate] = useState(null);
+  const [dailyStats, setDailyStats] = useState(() => getDailyCopyStats(userProfile, session));
+  const [showDailyLimitModal, setShowDailyLimitModal] = useState(false);
+  const [copyToast, setCopyToast] = useState(null);
+  const toastTimeoutRef = useRef(null);
+
+  const showToastMessage = useCallback((text, type = "success") => {
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    setCopyToast({ text, type });
+    toastTimeoutRef.current = setTimeout(() => {
+      setCopyToast(null);
+    }, 3200);
+  }, []);
+
+  useEffect(() => {
+    setDailyStats(getDailyCopyStats(userProfile, session));
+    const handleUpdate = () => {
+      setDailyStats(getDailyCopyStats(userProfile, session));
+    };
+    window.addEventListener("flowsites_daily_copy_updated", handleUpdate);
+    return () => window.removeEventListener("flowsites_daily_copy_updated", handleUpdate);
+  }, [userProfile, session]);
   const searchRef = useRef(null);
   const categoryScrollRef = useRef(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -302,26 +325,58 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
   }, [showTypeMenu, showSortMenu]);
 
   const handleCopy = useCallback(
-    (template) => {
+    async (template) => {
       // Gate behind authentication first
       if (!session) {
         onAuthRequired && onAuthRequired(template.id);
         return;
       }
+
+      const plan = userProfile?.plan || "free";
+      const isBg = isBackgroundAsset(template);
+
       // Gate behind subscription plan
       if (!canCopy(template, userProfile)) {
         onGoUnlimited && onGoUnlimited();
         return;
       }
+
+      // Check daily quota for Premium plan (max 3 prompts per day)
+      if (plan === "premium") {
+        const stats = getDailyCopyStats(userProfile, session);
+        if (stats.remaining <= 0) {
+          setShowDailyLimitModal(true);
+          return;
+        }
+      }
+
       const prompt =
         template.prompt ||
         `Build a premium ${template.title.toLowerCase()} website using React, Tailwind CSS, and Framer Motion. Use a dark aesthetic, glassmorphism cards, smooth scroll animations, and responsive layouts.`;
-      navigator.clipboard.writeText(prompt).then(() => {
+
+      try {
+        await navigator.clipboard.writeText(prompt);
         setCopiedId(template.id);
         setTimeout(() => setCopiedId(null), 1800);
-      });
+
+        if (plan === "premium") {
+          const updated = await recordDailyCopy(userProfile, session);
+          const remaining = updated.remaining;
+          if (remaining === 0) {
+            showToastMessage("Copied! (3/3 daily copies used — limit reached for today)", "warning");
+          } else {
+            showToastMessage(`Copied! (${remaining} ${remaining === 1 ? "copy" : "copies"} left today)`, "success");
+          }
+        } else if (plan === "premium_plus") {
+          showToastMessage(isBg ? "Copied Asset URL (Unlimited VIP)" : "Copied AI Prompt (Unlimited VIP)", "success");
+        } else {
+          showToastMessage(isBg ? "Copied Asset URL to clipboard!" : "Copied AI Prompt to clipboard!", "success");
+        }
+      } catch (err) {
+        console.error("Clipboard write error:", err);
+      }
     },
-    [session, userProfile, onAuthRequired, onGoUnlimited]
+    [session, userProfile, onAuthRequired, onGoUnlimited, showToastMessage]
   );
 
   // After successful auth, auto-copy the deferred template
@@ -911,24 +966,62 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
 
             {/* Empty state */}
             {filtered.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-24 text-center">
-                <div className="lg-glass w-16 h-16 rounded-2xl flex items-center justify-center mb-4">
-                  <Filter className="w-7 h-7 text-white/30" />
-                </div>
-                <h3 className="font-display text-2xl text-white mb-2">No prompts found</h3>
-                <p className="text-sm text-white/40 max-w-sm">
-                  Try adjusting your filters or search term to find what you're looking for.
-                </p>
-                <button
-                  onClick={() => {
-                    setSearch("");
-                    setSelectedCategory("All");
-                    setSelectedType("All");
-                  }}
-                  className="mt-6 px-5 py-2.5 rounded-full bg-white text-[#070707] text-sm font-medium hover:bg-white/90 transition-colors"
-                >
-                  Clear all filters
-                </button>
+              <div className="flex flex-col items-center justify-center py-24 sm:py-28 text-center">
+                {selectedCategory === backgroundCategory ? (
+                  <div className="relative flex flex-col items-center max-w-md px-6">
+                    {/* Ambient Optical Glow */}
+                    <div className="absolute -top-12 left-1/2 -translate-x-1/2 w-48 h-32 bg-white/[0.05] blur-3xl rounded-full pointer-events-none" />
+
+                    <div className="relative w-16 h-16 rounded-2xl bg-white/[0.04] border border-white/10 border-t-white/20 shadow-[0_4px_20px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.15)] flex items-center justify-center mb-6 backdrop-blur-xl">
+                      <Sparkles className="w-7 h-7 text-white/70 animate-pulse" />
+                    </div>
+
+                    <span className="px-3 py-1 rounded-full bg-white/[0.06] border border-white/10 text-[11px] font-semibold uppercase tracking-widest text-white/60 mb-3">
+                      {backgroundCategory}
+                    </span>
+
+                    <h3 className="font-display text-3xl sm:text-4xl font-bold text-white mb-3 tracking-tight">
+                      Coming Soon
+                    </h3>
+
+                    <p className="text-sm sm:text-base text-white/50 leading-relaxed max-w-sm mb-6 font-normal">
+                      We're crafting an exclusive library of high-performance procedural and video background assets. Check back soon!
+                    </p>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedCategory("All");
+                        setSearch("");
+                        setSelectedType("All");
+                      }}
+                      className="px-6 py-2.5 rounded-full bg-white/[0.08] hover:bg-white/[0.14] text-white text-sm font-medium border border-white/15 shadow-[0_2px_10px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.15)] transition-all cursor-pointer active:scale-95"
+                    >
+                      Explore All Templates
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="lg-glass w-16 h-16 rounded-2xl flex items-center justify-center mb-4">
+                      <Filter className="w-7 h-7 text-white/30" />
+                    </div>
+                    <h3 className="font-display text-2xl text-white mb-2">No prompts found</h3>
+                    <p className="text-sm text-white/40 max-w-sm">
+                      Try adjusting your filters or search term to find what you're looking for.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearch("");
+                        setSelectedCategory("All");
+                        setSelectedType("All");
+                      }}
+                      className="mt-6 px-5 py-2.5 rounded-full bg-white text-[#070707] text-sm font-medium hover:bg-white/90 transition-colors cursor-pointer"
+                    >
+                      Clear all filters
+                    </button>
+                  </>
+                )}
               </div>
             )}
           </>
@@ -1024,6 +1117,11 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
                     const accessible = canCopy(previewTemplate, userProfile);
                     const showUpgrade = isPremium && !accessible;
 
+                    const userPlan = userProfile?.plan || "free";
+                    const isPremiumTier = userPlan === "premium";
+                    const isPremiumPlusTier = userPlan === "premium_plus";
+                    const dailyLimitReached = isPremiumTier && dailyStats.remaining <= 0;
+
                     if (showUpgrade) {
                       return (
                         <div className="w-full h-[52px] mb-7">
@@ -1049,28 +1147,70 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
                       );
                     }
 
+                    if (dailyLimitReached) {
+                      return (
+                        <div className="w-full mb-7">
+                          <div className="w-full h-[52px]">
+                            <LiquidMetalButton
+                              onClick={() => {
+                                setPreviewTemplate(null);
+                                onGoUnlimited && onGoUnlimited();
+                              }}
+                              labelStyle={{
+                                fontSize: "14px",
+                                fontWeight: "600",
+                                letterSpacing: "0.01em",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                gap: "8px",
+                              }}
+                            >
+                              <span>Upgrade to Premium+ (Limit Reached)</span>
+                              <Sparkles className="w-4 h-4" />
+                            </LiquidMetalButton>
+                          </div>
+                          <p className="text-[11px] text-amber-300/80 text-center mt-2 font-medium">
+                            ⚡ 3 of 3 daily prompt copies used today. Upgrade to Premium+ for unlimited copies.
+                          </p>
+                        </div>
+                      );
+                    }
+
                     return (
-                      <div className="w-full h-[52px] mb-7">
-                        <OpticalButton
-                          onClick={() => handleCopy(previewTemplate)}
-                          label={
-                            isCopied
-                              ? (isBgAsset ? "Copied Asset URL" : "Copied AI Prompt")
-                              : (isBgAsset ? "Copy Asset URL" : "Copy AI Prompt")
-                          }
-                          icon={
-                            isCopied ? (
-                              <Check className="w-4 h-4 text-emerald-400" />
-                            ) : (
-                              <Copy className="w-4 h-4 text-white" />
-                            )
-                          }
-                          material="clear"
-                          surface="dark"
-                          fontSize="14px"
-                          padding="12px 24px"
-                          style={{ width: "100%", height: "52px", "--og-min-height": "52px" }}
-                        />
+                      <div className="w-full mb-7">
+                        <div className="w-full h-[52px]">
+                          <OpticalButton
+                            onClick={() => handleCopy(previewTemplate)}
+                            label={
+                              isCopied
+                                ? (isBgAsset ? "Copied Asset URL" : "Copied AI Prompt")
+                                : (isBgAsset ? "Copy Asset URL" : "Copy AI Prompt")
+                            }
+                            icon={
+                              isCopied ? (
+                                <Check className="w-4 h-4 text-emerald-400" />
+                              ) : (
+                                <Copy className="w-4 h-4 text-white" />
+                              )
+                            }
+                            material="clear"
+                            surface="dark"
+                            fontSize="14px"
+                            padding="12px 24px"
+                            style={{ width: "100%", height: "52px", "--og-min-height": "52px" }}
+                          />
+                        </div>
+                        {isPremiumTier && (
+                          <p className="text-[11px] text-white/50 text-center mt-2 font-medium">
+                            ⚡ {dailyStats.remaining} of 3 daily prompt copies remaining today
+                          </p>
+                        )}
+                        {isPremiumPlusTier && (
+                          <p className="text-[11px] text-emerald-400/80 text-center mt-2 font-medium">
+                            ✨ Unlimited VIP prompt copies & downloads
+                          </p>
+                        )}
                       </div>
                     );
                   })()}
@@ -1160,6 +1300,129 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
                 </div>
               </div>
             </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Daily Copy Limit Modal */}
+      <AnimatePresence>
+        {showDailyLimitModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowDailyLimitModal(false)}
+            className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/80 backdrop-blur-xl"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.94, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.94, y: 16 }}
+              transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative max-w-md w-full rounded-[28px] bg-[#0d0d11]/95 border border-white/15 border-t-white/30 shadow-[0_32px_80px_-16px_rgba(0,0,0,0.9),inset_0_1px_0_0_rgba(255,255,255,0.2)] p-6 sm:p-7 text-center overflow-hidden"
+            >
+              {/* Optical Glass Ambient Glow */}
+              <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-48 h-32 bg-amber-500/10 blur-3xl rounded-full pointer-events-none" />
+
+              {/* Close Button */}
+              <button
+                type="button"
+                onClick={() => setShowDailyLimitModal(false)}
+                className="absolute top-4 right-4 w-7 h-7 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 flex items-center justify-center text-white/50 hover:text-white transition-all cursor-pointer"
+                aria-label="Close"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+
+              {/* Icon */}
+              <div className="mx-auto w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-center text-amber-400 mb-4 shadow-[0_4px_16px_rgba(245,158,11,0.15)]">
+                <Zap className="w-6 h-6" />
+              </div>
+
+              {/* Title */}
+              <h3 className="font-display text-2xl font-bold text-white mb-2 tracking-tight">
+                Daily Limit Reached (3/3)
+              </h3>
+
+              {/* Subtitle */}
+              <p className="text-sm text-white/60 leading-relaxed mb-5 font-normal">
+                You've used all <span className="text-white font-semibold">3 prompt copies</span> included in your <span className="text-amber-300 font-medium">Premium</span> plan for today. Quotas reset automatically at midnight.
+              </p>
+
+              {/* Comparison Box */}
+              <div className="p-3.5 rounded-2xl bg-white/[0.04] border border-white/10 mb-6 text-left space-y-2.5 text-xs">
+                <div className="flex items-center justify-between text-white/70">
+                  <span className="flex items-center gap-1.5">
+                    <Zap className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Premium Plan:</span>
+                  </span>
+                  <span className="font-mono font-semibold text-white/90">3 prompts / day</span>
+                </div>
+                <div className="h-px bg-white/5" />
+                <div className="flex items-center justify-between text-emerald-300">
+                  <span className="flex items-center gap-1.5 font-medium">
+                    <Crown className="w-3.5 h-3.5 text-amber-300" />
+                    <span>Premium+ Plan:</span>
+                  </span>
+                  <span className="font-semibold text-emerald-400">Unlimited copies & downloads</span>
+                </div>
+              </div>
+
+              {/* Action Button: Liquid Metal */}
+              <div className="w-full h-[50px] mb-3">
+                <LiquidMetalButton
+                  onClick={() => {
+                    setShowDailyLimitModal(false);
+                    onGoUnlimited && onGoUnlimited();
+                  }}
+                  labelStyle={{
+                    fontSize: "14px",
+                    fontWeight: "600",
+                    letterSpacing: "0.01em",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "8px",
+                  }}
+                >
+                  <span>Upgrade to Premium+ (Unlimited)</span>
+                  <Sparkles className="w-4 h-4" />
+                </LiquidMetalButton>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowDailyLimitModal(false)}
+                className="text-xs text-white/40 hover:text-white/70 transition-colors py-1 cursor-pointer"
+              >
+                Continue browsing
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Copy Toast Feedback */}
+      <AnimatePresence>
+        {copyToast && (
+          <motion.div
+            initial={{ opacity: 0, y: 24, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[90] px-5 py-3 rounded-2xl text-sm font-medium flex items-center gap-2.5 backdrop-blur-2xl shadow-[0_16px_36px_-6px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.25)] border ${
+              copyToast.type === "warning"
+                ? "bg-[#181512]/95 border-amber-500/35 text-amber-200"
+                : "bg-[#0d0f14]/95 border-white/20 text-white"
+            }`}
+          >
+            {copyToast.type === "warning" ? (
+              <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+            ) : (
+              <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+            )}
+            <span>{copyToast.text}</span>
           </motion.div>
         )}
       </AnimatePresence>

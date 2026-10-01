@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { LogOut, Zap, Crown, Sparkles, ChevronDown, ChevronRight } from "lucide-react";
+import { getDailyCopyStats } from "../lib/access.js";
 
 const planConfig = {
   free: {
@@ -57,6 +58,19 @@ export default function UserProfileMenu({ session, userProfile, onUpgrade, onLog
         year: "numeric",
       })
     : null;
+
+  const [dailyStats, setDailyStats] = useState(() => getDailyCopyStats(userProfile, session));
+
+  useEffect(() => {
+    setDailyStats(getDailyCopyStats(userProfile, session));
+
+    const handleCopyUpdate = () => {
+      setDailyStats(getDailyCopyStats(userProfile, session));
+    };
+
+    window.addEventListener("flowsites_daily_copy_updated", handleCopyUpdate);
+    return () => window.removeEventListener("flowsites_daily_copy_updated", handleCopyUpdate);
+  }, [userProfile, session]);
 
   // Close on outside click
   useEffect(() => {
@@ -155,6 +169,74 @@ export default function UserProfileMenu({ session, userProfile, onUpgrade, onLog
                   </span>
                 )}
               </div>
+
+              {/* Quota Indicator for Premium Tier */}
+              {plan === "premium" && (
+                <div className="mt-3 p-3 rounded-2xl bg-white/[0.04] border border-white/10 border-t-white/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-semibold text-white/85 flex items-center gap-1.5">
+                      <Zap className="w-3.5 h-3.5 text-amber-400" />
+                      Daily Prompts Quota
+                    </span>
+                    <span
+                      className={`text-[11px] font-mono font-bold px-2 py-0.5 rounded-full ${
+                        dailyStats.remaining > 0
+                          ? "bg-white/10 text-white border border-white/15"
+                          : "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                      }`}
+                    >
+                      {dailyStats.used}/3 used today
+                    </span>
+                  </div>
+                  <div className="w-full bg-white/10 h-1.5 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-300 ${
+                        dailyStats.remaining > 0
+                          ? "bg-gradient-to-r from-amber-400 to-amber-200"
+                          : "bg-red-400"
+                      }`}
+                      style={{
+                        width: `${Math.min(100, (dailyStats.used / 3) * 100)}%`,
+                      }}
+                    />
+                  </div>
+                  <div className="text-[10px] text-white/45 mt-1.5 font-medium flex items-center justify-between">
+                    <span>
+                      {dailyStats.remaining > 0
+                        ? `${dailyStats.remaining} ${
+                            dailyStats.remaining === 1 ? "prompt copy" : "prompt copies"
+                          } left today`
+                        : "Daily limit reached for today"}
+                    </span>
+                    {dailyStats.remaining === 0 && (
+                      <button
+                        type="button"
+                        className="text-amber-400 font-semibold hover:underline cursor-pointer"
+                        onClick={() => {
+                          setOpen(false);
+                          onUpgrade?.();
+                        }}
+                      >
+                        Upgrade to Unlimited →
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Quota Indicator for Premium+ Tier */}
+              {plan === "premium_plus" && (
+                <div className="mt-3 p-2.5 px-3 rounded-2xl bg-white/[0.04] border border-white/10 border-t-white/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] flex items-center justify-between">
+                  <span className="text-xs font-semibold text-white/85 flex items-center gap-1.5">
+                    <Crown className="w-3.5 h-3.5 text-amber-300" />
+                    Prompt Copies & Downloads
+                  </span>
+                  <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/25 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    Unlimited VIP
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Etched Glass Divider */}

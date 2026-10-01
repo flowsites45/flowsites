@@ -15,36 +15,36 @@ export default function FAQ() {
   ]
 
   return (
-    <section className="w-full max-w-3xl mx-auto px-6 py-24 relative z-10">
+    <section className="w-full max-w-3xl mx-auto px-4 sm:px-6 py-16 sm:py-24 relative z-10 overflow-hidden">
       <motion.div 
         variants={staggerContainer} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-100px" }}
-        className="text-center mb-12"
+        className="text-center mb-8 sm:mb-12"
       >
-        <motion.h2 variants={fadeSlideUp} className="font-display text-4xl md:text-5xl text-foreground mb-4">Frequently Asked Questions</motion.h2>
-        <motion.p variants={fadeSlideUp} className="text-muted-foreground text-lg font-body">Everything you need to know about the platform.</motion.p>
+        <motion.h2 variants={fadeSlideUp} className="font-display text-3xl sm:text-4xl md:text-5xl text-foreground mb-3 sm:mb-4">Frequently Asked Questions</motion.h2>
+        <motion.p variants={fadeSlideUp} className="text-muted-foreground text-sm sm:text-lg font-body">Everything you need to know about the platform.</motion.p>
       </motion.div>
 
       <motion.div 
         variants={staggerContainer} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-100px" }}
-        className="space-y-4"
+        className="space-y-3 sm:space-y-4 w-full"
       >
         {faqs.map((faq, i) => (
           <motion.div 
             key={i}
             variants={fadeSlideUp}
             whileHover={{ y: -2, transition: { duration: 0.2 } }}
-            className={`${glassCard} overflow-hidden`}
+            className={`${glassCard} overflow-hidden w-full`}
           >
             <div className={glassSheen} />
             <button
               onClick={() => setOpenIndex(openIndex === i ? null : i)}
-              className="w-full p-6 flex items-center justify-between text-left focus:outline-none cursor-pointer"
+              className="w-full p-4 sm:p-6 flex items-center justify-between text-left focus:outline-none cursor-pointer gap-3"
             >
-              <span className="font-display text-xl text-foreground">{faq.q}</span>
+              <span className="font-display text-lg sm:text-xl text-foreground leading-snug">{faq.q}</span>
               <motion.div
                 animate={{ rotate: openIndex === i ? 180 : 0 }}
                 transition={springs.soft}
-                className={`w-9 h-9 rounded-xl ${glassIcon} flex items-center justify-center flex-shrink-0 ml-4`}
+                className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl ${glassIcon} flex items-center justify-center flex-shrink-0 ml-3 sm:ml-4`}
               >
                 <ChevronDown className="w-4 h-4 text-foreground/60" />
               </motion.div>
@@ -58,8 +58,8 @@ export default function FAQ() {
                   exit={{ height: 0, opacity: 0, filter: "blur(5px)" }}
                   transition={springs.soft}
                 >
-                  <div className="px-6 pb-6 pt-0 font-body text-foreground/80 leading-relaxed text-sm md:text-base border-t border-black/[0.04] mt-2">
-                    <p className="pt-4">{faq.a}</p>
+                  <div className="px-4 sm:px-6 pb-4 sm:pb-6 pt-0 font-body text-foreground/80 leading-relaxed text-xs sm:text-sm md:text-base border-t border-black/[0.04] mt-2">
+                    <p className="pt-3 sm:pt-4">{faq.a}</p>
                   </div>
                 </motion.div>
               )}
