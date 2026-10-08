@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { LogOut, Zap, Crown, Sparkles, ChevronDown, ChevronRight } from "lucide-react";
-import { getDailyCopyStats } from "../lib/access.js";
+import { getDailyCopyStats, isYearlyPlan, isMonthlyPlan } from "../lib/access.js";
 
 const planConfig = {
   free: {
@@ -42,8 +42,27 @@ export default function UserProfileMenu({ session, userProfile, onUpgrade, onLog
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
-  const plan = userProfile?.plan || "free";
-  const config = planConfig[plan] || planConfig.free;
+  const isYearly = isYearlyPlan(userProfile);
+  const isMonthly = isMonthlyPlan(userProfile);
+  const isFree = !isYearly && !isMonthly;
+
+  const config = isYearly
+    ? {
+        label: "Premium (Yearly)",
+        icon: Crown,
+        pillClass: "bg-white/[0.1] border-white/25 border-t-white/45 text-white shadow-[0_2px_12px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.25)]",
+        dotClass: "bg-white shadow-[0_0_10px_rgba(255,255,255,1)]",
+        dotPingClass: "bg-white/60",
+      }
+    : isMonthly
+    ? {
+        label: "Premium (Monthly)",
+        icon: Zap,
+        pillClass: "bg-white/[0.08] border-white/20 border-t-white/35 text-white shadow-[0_2px_10px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.2)]",
+        dotClass: "bg-white shadow-[0_0_8px_rgba(255,255,255,0.9)]",
+        dotPingClass: "bg-white/50",
+      }
+    : planConfig.free;
   const PlanIcon = config.icon;
 
   const name = session?.user?.user_metadata?.full_name || session?.user?.user_metadata?.name || userProfile?.full_name || "";
@@ -163,15 +182,15 @@ export default function UserProfileMenu({ session, userProfile, onUpgrade, onLog
                   <span>{config.label}</span>
                 </div>
 
-                {renewalDate && plan !== "free" && (
+                {renewalDate && !isFree && (
                   <span className="text-[11px] text-white/40 font-mono tracking-tight">
                     Renews {renewalDate}
                   </span>
                 )}
               </div>
 
-              {/* Quota Indicator for Premium Tier */}
-              {plan === "premium" && (
+              {/* Quota Indicator for Monthly Premium Tier */}
+              {isMonthly && !isYearly && (
                 <div className="mt-3 p-3 rounded-2xl bg-white/[0.04] border border-white/10 border-t-white/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-semibold text-white/85 flex items-center gap-1.5">
@@ -224,8 +243,8 @@ export default function UserProfileMenu({ session, userProfile, onUpgrade, onLog
                 </div>
               )}
 
-              {/* Quota Indicator for Premium+ Tier */}
-              {plan === "premium_plus" && (
+              {/* Quota Indicator for Yearly Premium Tier */}
+              {isYearly && (
                 <div className="mt-3 p-2.5 px-3 rounded-2xl bg-white/[0.04] border border-white/10 border-t-white/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] flex items-center justify-between">
                   <span className="text-xs font-semibold text-white/85 flex items-center gap-1.5">
                     <Crown className="w-3.5 h-3.5 text-amber-300" />
@@ -244,7 +263,7 @@ export default function UserProfileMenu({ session, userProfile, onUpgrade, onLog
 
             {/* Actions Menu */}
             <div className="p-2 space-y-1.5 relative z-10">
-              {(plan === "free" || plan === "premium") && (
+              {!isYearly && (
                 <button
                   type="button"
                   onClick={() => { setOpen(false); onUpgrade?.(); }}
@@ -258,10 +277,10 @@ export default function UserProfileMenu({ session, userProfile, onUpgrade, onLog
                     </div>
                     <div className="min-w-0">
                       <p className="text-xs sm:text-sm font-semibold text-white tracking-tight leading-tight group-hover:text-white transition-colors">
-                        {plan === "free" ? "Upgrade to Premium" : "Upgrade to Premium+"}
+                        {isFree ? "Upgrade to Premium" : "Upgrade to Yearly (Unlimited)"}
                       </p>
                       <p className="text-[11px] text-white/50 truncate mt-0.5 font-normal">
-                        {plan === "free" ? "Unlock full prompt library" : "Unlimited VIP access"}
+                        {isFree ? "Unlock full prompt library" : "Unlimited copies & background assets"}
                       </p>
                     </div>
                   </div>

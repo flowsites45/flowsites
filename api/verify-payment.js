@@ -59,6 +59,35 @@ export default async function handler(req, res) {
       if (dbError) {
         console.error("Supabase insert error:", dbError.message);
       }
+
+      // Sync user profile plan
+      try {
+        const isPremiumPlus =
+          plan_name?.includes("Premium+") ||
+          plan_name?.includes("Premium Plus") ||
+          (plan_name?.includes("Premium") && billing_cycle === "Yearly");
+        const isPremium = plan_name?.includes("Premium");
+
+        let planKey = "free";
+        if (isPremiumPlus) {
+          planKey = "premium_plus";
+        } else if (isPremium) {
+          planKey = "premium";
+        }
+
+        const { data: userData } = await supabase.auth.admin.listUsers();
+        const user = userData?.users?.find((u) => u.email === user_email);
+        if (user) {
+          await supabase.from("user_profiles").upsert({
+            id: user.id,
+            plan: planKey,
+            razorpay_subscription_id,
+            updated_at: new Date().toISOString(),
+          });
+        }
+      } catch (syncErr) {
+        console.warn("Could not sync user_profiles plan:", syncErr);
+      }
     } else {
       console.error("Supabase service role env vars not configured on server.");
     }

@@ -21,13 +21,25 @@ import {
 import { SiClaudecode, SiCursor } from "react-icons/si";
 import { RiOpenaiFill } from "react-icons/ri";
 import { getPublishedTemplates, incrementLikes } from "../../lib/store";
-import { canCopy, requiredPlanLabel, getDailyCopyStats, recordDailyCopy, DAILY_PREMIUM_LIMIT } from "../../lib/access.js";
+import { canCopy, requiredPlanLabel, getDailyCopyStats, recordDailyCopy, isYearlyPlan, isMonthlyPlan, DAILY_PREMIUM_LIMIT } from "../../lib/access.js";
 import UserProfileMenu from "../UserProfileMenu.jsx";
 import LiquidMetalButton from "../ui/LiquidMetalButton.jsx";
+import LiquidMetalCardBorder from "../ui/LiquidMetalCardBorder.jsx";
 import { OpticalButton } from "../ui/OpticalGlass.jsx";
 import { DotmCircular5 } from "../ui/dotm-circular-5";
 import TemplateCard from "./TemplateCard.jsx";
 import { parseCategories, hasCategory, isBackgroundAsset, BACKGROUND_CATEGORY } from "../../lib/categories.js";
+import {
+  trackPromptCopy,
+  trackVideoPreview,
+  trackPreviewDuration,
+  trackTemplateLike,
+  trackSearch,
+  trackCategoryFilter,
+  trackTypeFilter,
+  trackUpgradeClick,
+  trackDailyLimitReached,
+} from "../../lib/analytics.js";
 
 const categories = [
   "All",
@@ -134,7 +146,18 @@ function LovableIcon() {
   );
 }
 
-export default function Gallery({ onAdminAuth, onHome, session, userProfile, onAuthRequired, onGoUnlimited, pendingCopyTemplateId, onClearPendingCopy, onLogout }) {
+export default function Gallery({
+  onLogin,
+  onAdminAuth,
+  onHome,
+  session,
+  userProfile,
+  onAuthRequired,
+  onGoUnlimited,
+  pendingCopyTemplateId,
+  onClearPendingCopy,
+  onLogout,
+}) {
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -305,6 +328,38 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
       });
   }, [templates, deferredSearch, selectedCategory, selectedType, sortBy]);
 
+  // Progressive batch loading: render 24 cards initially, load +18 as user scrolls to prevent DOM overload
+  const BATCH_SIZE = 24;
+  const [displayCount, setDisplayCount] = useState(BATCH_SIZE);
+  const loadMoreSentinelRef = useRef(null);
+
+  // Reset display count when filters, search, or category change
+  useEffect(() => {
+    setDisplayCount(BATCH_SIZE);
+  }, [deferredSearch, selectedCategory, selectedType, sortBy]);
+
+  // Seamlessly load next batch as user scrolls near the bottom
+  useEffect(() => {
+    const sentinel = loadMoreSentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setDisplayCount((prev) => Math.min(prev + 18, filtered.length));
+        }
+      },
+      { rootMargin: "600px 0px" }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [filtered.length]);
+
+  const visibleTemplates = useMemo(() => {
+    return filtered.slice(0, displayCount);
+  }, [filtered, displayCount]);
+
   const hasActiveFilters = selectedCategory !== "All" || selectedType !== "All" || search.trim() !== "";
 
   // Close type/sort menus on outside click or touch
@@ -332,19 +387,24 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
         return;
       }
 
-      const plan = userProfile?.plan || "free";
+      const isYearly = isYearlyPlan(userProfile);
+      const isMonthly = isMonthlyPlan(userProfile);
       const isBg = isBackgroundAsset(template);
 
       // Gate behind subscription plan
       if (!canCopy(template, userProfile)) {
+        if (isBg && isMonthly) {
+          showToastMessage("Background assets require the Yearly Premium plan.", "warning");
+        }
         onGoUnlimited && onGoUnlimited();
         return;
       }
 
-      // Check daily quota for Premium plan (max 3 prompts per day)
-      if (plan === "premium") {
+      // Check daily quota for Monthly Premium plan (max 3 prompts per day)
+      if (isMonthly && !isYearly) {
         const stats = getDailyCopyStats(userProfile, session);
         if (stats.remaining <= 0) {
+          trackDailyLimitReached(userProfile);
           setShowDailyLimitModal(true);
           return;
         }
@@ -358,8 +418,9 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
         await navigator.clipboard.writeText(prompt);
         setCopiedId(template.id);
         setTimeout(() => setCopiedId(null), 1800);
+        trackPromptCopy(template, userProfile);
 
-        if (plan === "premium") {
+        if (isMonthly && !isYearly) {
           const updated = await recordDailyCopy(userProfile, session);
           const remaining = updated.remaining;
           if (remaining === 0) {
@@ -367,8 +428,8 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
           } else {
             showToastMessage(`Copied! (${remaining} ${remaining === 1 ? "copy" : "copies"} left today)`, "success");
           }
-        } else if (plan === "premium_plus") {
-          showToastMessage(isBg ? "Copied Asset URL (Unlimited VIP)" : "Copied AI Prompt (Unlimited VIP)", "success");
+        } else if (isYearly) {
+          showToastMessage(isBg ? "Copied Asset URL (Unlimited Yearly VIP)" : "Copied AI Prompt (Unlimited Yearly VIP)", "success");
         } else {
           showToastMessage(isBg ? "Copied Asset URL to clipboard!" : "Copied AI Prompt to clipboard!", "success");
         }
@@ -378,6 +439,64 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
     },
     [session, userProfile, onAuthRequired, onGoUnlimited, showToastMessage]
   );
+
+  // Track search queries cleanly with debounce and deduplication
+  const lastTrackedSearchRef = useRef("");
+  const searchTimeoutRef = useRef(null);
+
+  useEffect(() => {
+    const trimmed = (deferredSearch || "").trim().toLowerCase();
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    if (trimmed.length >= 2 && trimmed !== lastTrackedSearchRef.current) {
+      searchTimeoutRef.current = setTimeout(() => {
+        lastTrackedSearchRef.current = trimmed;
+        trackSearch(trimmed, filtered.length, userProfile);
+      }, 850);
+    }
+
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [deferredSearch, filtered.length, userProfile]);
+
+  // Track category and type filter changes cleanly
+  const lastTrackedCategoryRef = useRef("All");
+  useEffect(() => {
+    if (selectedCategory && selectedCategory !== "All" && selectedCategory !== lastTrackedCategoryRef.current) {
+      lastTrackedCategoryRef.current = selectedCategory;
+      trackCategoryFilter(selectedCategory, userProfile);
+    }
+  }, [selectedCategory, userProfile]);
+
+  const lastTrackedTypeRef = useRef("All");
+  useEffect(() => {
+    if (selectedType && selectedType !== "All" && selectedType !== lastTrackedTypeRef.current) {
+      lastTrackedTypeRef.current = selectedType;
+      trackTypeFilter(selectedType, userProfile);
+    }
+  }, [selectedType, userProfile]);
+
+  // Track preview watch duration when modal opens and closes
+  const previewStartTimeRef = useRef(0);
+  const activePreviewRef = useRef(null);
+
+  useEffect(() => {
+    if (previewTemplate) {
+      previewStartTimeRef.current = Date.now();
+      activePreviewRef.current = previewTemplate;
+    } else if (activePreviewRef.current) {
+      const elapsedSeconds = Math.round((Date.now() - previewStartTimeRef.current) / 1000);
+      if (elapsedSeconds >= 2) {
+        trackPreviewDuration(activePreviewRef.current, elapsedSeconds, userProfile);
+      }
+      activePreviewRef.current = null;
+    }
+  }, [previewTemplate, userProfile]);
 
   // After successful auth, auto-copy the deferred template
   useEffect(() => {
@@ -402,21 +521,25 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
       });
       if (!isLiked) {
         await incrementLikes(id);
+        const t = templates.find((item) => item.id === id);
+        if (t) trackTemplateLike(t, userProfile);
         setTemplates((prev) =>
-          prev.map((t) => (t.id === id ? { ...t, likes: t.likes + 1 } : t))
+          prev.map((item) => (item.id === id ? { ...item, likes: item.likes + 1 } : item))
         );
       }
     },
-    [liked]
+    [liked, templates, userProfile]
   );
 
   const handlePreview = useCallback((template) => {
+    trackVideoPreview(template, userProfile);
     setPreviewTemplate(template);
-  }, []);
+  }, [userProfile]);
 
   const handleGoUnlimited = useCallback(() => {
+    trackUpgradeClick("gallery_header", "premium", userProfile);
     onGoUnlimited && onGoUnlimited();
-  }, [onGoUnlimited]);
+  }, [onGoUnlimited, userProfile]);
 
   return (
     <div
@@ -431,7 +554,7 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
       {/* Top Navigation — Liquid Glass Header */}
       <header className="lg-header sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-20">
-          <div className="flex items-center justify-between h-16 gap-3">
+          <div className="flex items-center justify-between h-[74px] sm:h-16 gap-2.5 sm:gap-3">
             {/* Logo */}
             <button onClick={onHome} className="text-xl font-semibold tracking-tight text-white flex items-center gap-1.5 shrink-0 cursor-pointer hover:text-white/80 transition-colors">
               <span>✦ Flowsites</span>
@@ -546,14 +669,29 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
                 </AnimatePresence>
               </div>
 
-              {/* Go Premium Liquid Metal WebGL button (visible across all screens: mobile & desktop) */}
-              <div className="h-[36px] min-w-[110px] sm:h-[42px] sm:min-w-[145px]">
-                <LiquidMetalButton
+              {/* Go Premium Container with "Limited 70% off" Minimalist Active Liquid Metal Notice */}
+              <div className="relative flex items-center justify-center shrink-0">
+                <div className="h-[34px] min-w-[102px] sm:h-[40px] sm:min-w-[140px]">
+                  <LiquidMetalButton
+                    onClick={() => onGoUnlimited && onGoUnlimited()}
+                    labelStyle={{ fontSize: "11.5px", fontWeight: "600", letterSpacing: "0.02em" }}
+                  >
+                    Go Premium
+                  </LiquidMetalButton>
+                </div>
+
+                {/* Minimalist Notice: "Limited 70% off" positioned cleanly beneath without pushing Go Premium upwards */}
+                <button
+                  type="button"
                   onClick={() => onGoUnlimited && onGoUnlimited()}
-                  labelStyle={{ fontSize: "12px", fontWeight: "600", letterSpacing: "0.02em" }}
+                  className="group absolute top-full mt-1 sm:mt-1.5 h-[15px] sm:h-[18px] px-2 rounded-full bg-[#08080b]/95 backdrop-blur-md cursor-pointer flex items-center justify-center select-none transition-all duration-200 hover:scale-[1.03] active:scale-[0.98] z-20 whitespace-nowrap"
+                  title="Limited 70% off - Upgrade to Premium"
                 >
-                  Go Premium
-                </LiquidMetalButton>
+                  <LiquidMetalCardBorder borderRadius={9999} borderWidth={1.1} speed={0.25} glow="none" alwaysActive={true} />
+                  <span className="relative z-30 text-[7.5px] sm:text-[8.5px] font-medium tracking-[0.14em] text-white/90 uppercase whitespace-nowrap leading-none">
+                    Limited 70% off
+                  </span>
+                </button>
               </div>
 
               {/* User profile menu or Login button */}
@@ -566,8 +704,12 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
                 />
               ) : (
                 <button
-                  onClick={onAdminAuth || onHome}
-                  className="lg-pill px-3.5 py-1.5 rounded-full text-xs sm:text-sm font-medium text-white/90 hover:text-white"
+                  type="button"
+                  onClick={() => {
+                    if (onLogin) onLogin();
+                    else if (onAuthRequired) onAuthRequired();
+                  }}
+                  className="lg-pill px-3.5 py-1.5 rounded-full text-xs sm:text-sm font-medium text-white/90 hover:text-white cursor-pointer"
                 >
                   Login
                 </button>
@@ -577,7 +719,7 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
         </div>
 
         {/* Mobile search + filters (Graceful Multi-row Design) */}
-        <div className="md:hidden border-t border-white/5 px-4 py-2.5 flex flex-col gap-2.5 relative z-10 bg-gradient-to-b from-[#070707]/90 via-[#070707]/95 to-[#070707] backdrop-blur-xl">
+        <div className="md:hidden border-t border-white/5 px-4 pt-3.5 pb-3 flex flex-col gap-2.5 relative z-10 bg-gradient-to-b from-[#070707]/90 via-[#070707]/95 to-[#070707] backdrop-blur-xl">
           {/* Row 1: Mobile Search Input */}
           <div className="relative group">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 group-focus-within:text-white/70 transition-colors duration-200" />
@@ -919,16 +1061,16 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
         {/* Loading / Grid / Empty state */}
         {loading ? (
           <div className="flex flex-col items-center justify-center py-28 text-center">
-            <div className="flex items-center justify-center mb-5">
+            <div className="flex items-center justify-center mb-3.5">
               <DotmCircular5
-                size={44}
-                dotSize={6}
+                size={24}
+                dotSize={3}
                 color="#ffffff"
                 bloom={true}
                 speed={1.6}
               />
             </div>
-            <p className="text-sm font-medium text-white/60 tracking-wide animate-pulse">
+            <p className="text-xs font-medium text-white/50 tracking-wide animate-pulse">
               Loading templates...
             </p>
           </div>
@@ -936,9 +1078,9 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
           <>
             {/* Template Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-3 gap-6">
-              {filtered.map((template, index) => {
+              {visibleTemplates.map((template, index) => {
                 const accessible = !session || canCopy(template, userProfile);
-                const badgeLabel = requiredPlanLabel(template.type);
+                const badgeLabel = requiredPlanLabel(template, userProfile);
                 const isCopied = copiedId === template.id;
                 const isBgAsset = isBackgroundAsset(template);
                 const isLiked = liked.has(template.id);
@@ -963,6 +1105,13 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
                 );
               })}
             </div>
+
+            {/* Seamless Infinite Scroll Sentinel */}
+            {displayCount < filtered.length && (
+              <div ref={loadMoreSentinelRef} className="w-full h-16 flex items-center justify-center pt-4">
+                <DotmCircular5 size={20} dotSize={2.8} color="#ffffff" bloom={true} speed={1.8} />
+              </div>
+            )}
 
             {/* Empty state */}
             {filtered.length === 0 && (
@@ -1053,11 +1202,13 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
                   {previewTemplate.video ? (
                     <video
                       src={previewTemplate.video}
+                      poster={previewTemplate.image}
                       className="w-full h-full max-h-[72vh] block object-contain"
                       autoPlay
                       muted
                       loop
                       playsInline
+                      preload="auto"
                     />
                   ) : (
                     <img
@@ -1114,15 +1265,17 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
                       typeNormalized === "premium" ||
                       typeNormalized === "premium plus" ||
                       typeNormalized === "premium+";
+                    const isYearly = isYearlyPlan(userProfile);
+                    const isMonthly = isMonthlyPlan(userProfile);
                     const accessible = canCopy(previewTemplate, userProfile);
-                    const showUpgrade = isPremium && !accessible;
+                    const showUpgrade = (isPremium || isBgAsset) && !accessible;
 
-                    const userPlan = userProfile?.plan || "free";
-                    const isPremiumTier = userPlan === "premium";
-                    const isPremiumPlusTier = userPlan === "premium_plus";
+                    const isPremiumTier = isMonthly && !isYearly;
+                    const isYearlyTier = isYearly;
                     const dailyLimitReached = isPremiumTier && dailyStats.remaining <= 0;
 
                     if (showUpgrade) {
+                      const buttonText = isBgAsset ? "Unlock with Yearly Plan" : "Upgrade to Premium";
                       return (
                         <div className="w-full h-[52px] mb-7">
                           <LiquidMetalButton
@@ -1140,7 +1293,7 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
                               gap: "8px",
                             }}
                           >
-                            <span>Upgrade to Premium</span>
+                            <span>{buttonText}</span>
                             <Sparkles className="w-4 h-4" />
                           </LiquidMetalButton>
                         </div>
@@ -1166,12 +1319,12 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
                                 gap: "8px",
                               }}
                             >
-                              <span>Upgrade to Premium+ (Limit Reached)</span>
+                              <span>Upgrade to Yearly (Limit Reached)</span>
                               <Sparkles className="w-4 h-4" />
                             </LiquidMetalButton>
                           </div>
                           <p className="text-[11px] text-amber-300/80 text-center mt-2 font-medium">
-                            ⚡ 3 of 3 daily prompt copies used today. Upgrade to Premium+ for unlimited copies.
+                            ⚡ 3 of 3 daily prompt copies used today. Upgrade to Yearly for unlimited copies.
                           </p>
                         </div>
                       );
@@ -1206,9 +1359,9 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
                             ⚡ {dailyStats.remaining} of 3 daily prompt copies remaining today
                           </p>
                         )}
-                        {isPremiumPlusTier && (
+                        {isYearlyTier && (
                           <p className="text-[11px] text-emerald-400/80 text-center mt-2 font-medium">
-                            ✨ Unlimited VIP prompt copies & downloads
+                            ✨ Unlimited VIP prompt copies & downloads (Yearly Plan)
                           </p>
                         )}
                       </div>
@@ -1347,7 +1500,7 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
 
               {/* Subtitle */}
               <p className="text-sm text-white/60 leading-relaxed mb-5 font-normal">
-                You've used all <span className="text-white font-semibold">3 prompt copies</span> included in your <span className="text-amber-300 font-medium">Premium</span> plan for today. Quotas reset automatically at midnight.
+                You've used all <span className="text-white font-semibold">3 prompt copies</span> included in your <span className="text-amber-300 font-medium">Monthly Premium</span> plan for today. Quotas reset automatically at midnight.
               </p>
 
               {/* Comparison Box */}
@@ -1355,7 +1508,7 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
                 <div className="flex items-center justify-between text-white/70">
                   <span className="flex items-center gap-1.5">
                     <Zap className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Premium Plan:</span>
+                    <span>Monthly Plan:</span>
                   </span>
                   <span className="font-mono font-semibold text-white/90">3 prompts / day</span>
                 </div>
@@ -1363,7 +1516,7 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
                 <div className="flex items-center justify-between text-emerald-300">
                   <span className="flex items-center gap-1.5 font-medium">
                     <Crown className="w-3.5 h-3.5 text-amber-300" />
-                    <span>Premium+ Plan:</span>
+                    <span>Yearly Plan:</span>
                   </span>
                   <span className="font-semibold text-emerald-400">Unlimited copies & downloads</span>
                 </div>
@@ -1386,7 +1539,7 @@ export default function Gallery({ onAdminAuth, onHome, session, userProfile, onA
                     gap: "8px",
                   }}
                 >
-                  <span>Upgrade to Premium+ (Unlimited)</span>
+                  <span>Upgrade to Yearly (Unlimited)</span>
                   <Sparkles className="w-4 h-4" />
                 </LiquidMetalButton>
               </div>

@@ -1,5 +1,4 @@
 import React, { useRef, useEffect, useState, memo, useCallback } from "react";
-import { motion } from "framer-motion";
 import { Heart, Copy, Check, Play } from "lucide-react";
 import { OpticalButton } from "../ui/OpticalGlass.jsx";
 import LiquidMetalButton from "../ui/LiquidMetalButton.jsx";
@@ -13,12 +12,54 @@ function formatLikes(value) {
   return value + "";
 }
 
+// ─── Shared Singleton IntersectionObserver ───────────────────────────────────
+// 1. Buffer Observer: mounts video src when card is within 350px of viewport
+const bufferCallbacks = new Map();
+let sharedBufferObserver = null;
+
+function getSharedBufferObserver() {
+  if (sharedBufferObserver) return sharedBufferObserver;
+  if (typeof IntersectionObserver === "undefined") return null;
+
+  sharedBufferObserver = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        const cb = bufferCallbacks.get(entry.target);
+        if (cb) cb(entry.isIntersecting);
+      }
+    },
+    { rootMargin: "350px 0px", threshold: 0.0 }
+  );
+  return sharedBufferObserver;
+}
+
+// 2. Playback Observer: plays video when card is actively visible on screen
+const playbackCallbacks = new Map();
+let sharedPlaybackObserver = null;
+
+function getSharedPlaybackObserver() {
+  if (sharedPlaybackObserver) return sharedPlaybackObserver;
+  if (typeof IntersectionObserver === "undefined") return null;
+
+  sharedPlaybackObserver = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        const cb = playbackCallbacks.get(entry.target);
+        if (cb) cb(entry.isIntersecting);
+      }
+    },
+    { rootMargin: "0px 0px", threshold: 0.05 }
+  );
+  return sharedPlaybackObserver;
+}
+
 /**
- * Optimized, Memoized Template Card Component
- * - Viewport-aware video playback & lazy loading (IntersectionObserver)
- * - Isolated hover animations (CSS-driven, zero React parent re-renders)
- * - Memoized props to prevent sibling cards from re-rendering on copy/like
- * - Eager loading for above-the-fold cards, lazy decoding for below-the-fold
+ * Ultra-Fast Butter-Smooth Template Card Component
+ * - Immediate image poster rendering (0ms visual delay)
+ * - Proactive range buffering via preload="metadata" (instant first frame)
+ * - GPU Decoder Management: plays visible videos, pauses offscreen videos
+ * - Hover fast-track: instant playback on mouse enter
+ * - content-visibility: auto for native zero-cost offscreen rendering
  */
 function TemplateCardComponent({
   template,
@@ -37,31 +78,89 @@ function TemplateCardComponent({
 }) {
   const cardRef = useRef(null);
   const videoRef = useRef(null);
-  const [isInViewport, setIsInViewport] = useState(index < 6);
-  const isEager = index < 6;
 
-  // Viewport intersection observer: pause video when off-screen to save hardware decoders
+  // Above the fold (first 6 cards) mount video immediately
+  const isEager = index < 6;
+  const [shouldMountVideo, setShouldMountVideo] = useState(isEager);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isVideoReady, setIsVideoReady] = useState(false);
+  const isHoveredRef = useRef(false);
+
+  // Viewport tracking for buffering and playback
   useEffect(() => {
+    if (!template.video) return;
     const card = cardRef.current;
     if (!card) return;
 
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        const visible = entry.isIntersecting;
-        setIsInViewport(visible);
-        if (videoRef.current) {
-          if (visible) {
-            videoRef.current.play().catch(() => {});
-          } else {
-            videoRef.current.pause();
-          }
-        }
-      },
-      { rootMargin: "300px 0px", threshold: 0.01 }
-    );
+    const bufferObs = getSharedBufferObserver();
+    const playObs = getSharedPlaybackObserver();
 
-    observer.observe(card);
-    return () => observer.disconnect();
+    // Buffer callback: mount video src 350px before entering viewport
+    if (bufferObs) {
+      bufferCallbacks.set(card, (isNear) => {
+        if (isNear) {
+          setShouldMountVideo(true);
+        } else if (!isHoveredRef.current) {
+          // Unmount video when scrolled far away to free hardware decoders
+          setShouldMountVideo(false);
+          setIsVideoReady(false);
+        }
+      });
+      bufferObs.observe(card);
+    }
+
+    // Playback callback: play when visible, pause when scrolled out
+    if (playObs) {
+      playbackCallbacks.set(card, (isVisible) => {
+        const video = videoRef.current;
+        if (!video) return;
+
+        if (isVisible || isHoveredRef.current) {
+          const playPromise = video.play();
+          if (playPromise !== undefined) {
+            playPromise
+              .then(() => setIsPlaying(true))
+              .catch(() => {
+                // Autoplay policy or video not ready yet; retry on loadeddata
+              });
+          }
+        } else {
+          video.pause();
+          setIsPlaying(false);
+        }
+      });
+      playObs.observe(card);
+    }
+
+    return () => {
+      if (bufferObs) {
+        bufferCallbacks.delete(card);
+        bufferObs.unobserve(card);
+      }
+      if (playObs) {
+        playbackCallbacks.delete(card);
+        playObs.unobserve(card);
+      }
+    };
+  }, [template.video]);
+
+  // Handle card hover: immediately prioritize video playback
+  const handleMouseEnter = useCallback(() => {
+    isHoveredRef.current = true;
+    if (!shouldMountVideo) {
+      setShouldMountVideo(true);
+    }
+    const video = videoRef.current;
+    if (video) {
+      const playPromise = video.play();
+      if (playPromise !== undefined) {
+        playPromise.then(() => setIsPlaying(true)).catch(() => {});
+      }
+    }
+  }, [shouldMountVideo]);
+
+  const handleMouseLeave = useCallback(() => {
+    isHoveredRef.current = false;
   }, []);
 
   const handleLikeClick = useCallback(
@@ -83,43 +182,65 @@ function TemplateCardComponent({
   return (
     <div
       ref={cardRef}
-      className={`group relative rounded-[20px] overflow-hidden bg-gradient-to-b from-white/[0.08] to-transparent border border-white/10 border-t-white/20 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.1)] backdrop-blur-md transition-all duration-300 hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.3)] hover:border-white/15 hover:-translate-y-1.5 will-change-transform ${
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      className={`group relative rounded-[20px] overflow-hidden bg-gradient-to-b from-white/[0.08] to-transparent border border-white/10 border-t-white/20 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.1)] backdrop-blur-md transition-all duration-300 hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.3)] hover:border-white/15 hover:-translate-y-1.5 ${
         isHorizontal ? "shrink-0 w-[280px] sm:w-[320px] snap-start" : ""
       }`}
+      style={{
+        contentVisibility: "auto",
+        containIntrinsicSize: "320px 240px",
+      }}
     >
       {/* White Liquid Metal Procedural WebGL2 Shader Border Effect (Active on Hover) */}
       <LiquidMetalCardBorder />
 
-      {/* Image Area — aligned uniformly to aspect ratio, showing full original media without crop */}
+      {/* Media Container — perfectly aligned 16:10 aspect ratio */}
       <div
         onClick={handlePreviewClick}
-        className="relative aspect-[16/10] overflow-hidden bg-[#0a0a0c] isolate flex items-center justify-center border-b border-white/5 cursor-pointer"
+        className="relative aspect-[16/10] overflow-hidden bg-[#0a0a0c] isolate flex items-center justify-center border-b border-white/5 cursor-pointer select-none"
       >
-        {template.video ? (
+        {/* High-speed Poster Image: Always rendered beneath to guarantee 0ms visual blanking */}
+        {template.image && (
+          <img
+            src={template.image}
+            alt={template.title}
+            className={`absolute inset-0 w-full h-full object-contain block transition-opacity duration-300 ${
+              isVideoReady && isPlaying ? "opacity-0" : "opacity-100"
+            }`}
+            loading={isEager ? "eager" : "lazy"}
+            decoding="async"
+            fetchPriority={isEager ? "high" : "low"}
+          />
+        )}
+
+        {/* Video Element: Streamed with HTTP Range support for instant playback */}
+        {template.video && shouldMountVideo && (
           <video
             ref={videoRef}
-            src={isInViewport || isEager ? template.video : undefined}
-            poster={template.image && template.image.startsWith("http") ? template.image : undefined}
-            className="w-full h-full object-contain block transition-opacity duration-500 group-hover:opacity-90"
+            src={template.video}
+            className={`w-full h-full object-contain block transition-opacity duration-300 ${
+              isVideoReady ? "opacity-100" : "opacity-0"
+            }`}
             autoPlay
             loop
             muted
             playsInline
-            preload={isEager ? "auto" : "none"}
-            onLoadedData={(e) => {
-              if (isInViewport || isEager) {
-                e.currentTarget.play().catch(() => {});
+            preload={isEager ? "auto" : "metadata"}
+            onLoadedData={() => {
+              setIsVideoReady(true);
+              if (videoRef.current) {
+                videoRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
               }
             }}
-          />
-        ) : (
-          <img
-            src={template.image}
-            alt={template.title}
-            className="w-full h-full object-contain block transition-opacity duration-500 group-hover:opacity-90"
-            loading={isEager ? "eager" : "lazy"}
-            decoding="async"
-            fetchPriority={isEager ? "high" : "auto"}
+            onPlaying={() => {
+              setIsVideoReady(true);
+              setIsPlaying(true);
+            }}
+            onError={() => {
+              setIsVideoReady(false);
+              setIsPlaying(false);
+            }}
           />
         )}
 

@@ -2,18 +2,12 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Check, X, Sparkles, ArrowRight, Loader2, AlertCircle, Tag, Percent } from "lucide-react";
 import { createSubscription, verifyPayment, openRazorpayCheckout, getPlanId, getPlanLink } from "../../lib/razorpay.js";
+import { validateCoupon } from "../../lib/coupons.js";
 import LiquidMetalButton from "../ui/LiquidMetalButton.jsx";
 import LiquidMetalCardBorder from "../ui/LiquidMetalCardBorder.jsx";
+import { trackPricingView, trackBillingToggle, trackUpgradeClick } from "../../lib/analytics.js";
 
-const premiumFeatures = [
-  { text: "3 Prompt copies / day", included: true },
-  { text: "Get access to all future assets", included: true },
-  { text: "Commercial license", included: true },
-  { text: "Dedicated support", included: true },
-  { text: "No background assets", included: false },
-];
-
-const premiumPlusFeatures = [
+const yearlyPremiumFeatures = [
   { text: "Unlimited prompt copies & downloads", included: true },
   { text: "Unlimited access to all templates", included: true },
   { text: "Background assets", included: true },
@@ -21,6 +15,15 @@ const premiumPlusFeatures = [
   { text: "Commercial license", included: true },
   { text: "Dedicated support", included: true },
 ];
+
+const monthlyPremiumFeatures = [
+  { text: "3 Prompt copies / day", included: true },
+  { text: "Get access to all future assets", included: true },
+  { text: "Commercial license", included: true },
+  { text: "Dedicated support", included: true },
+  { text: "Background assets", included: false },
+];
+
 
 export default function PricingPage({
   onHome,
@@ -45,6 +48,10 @@ export default function PricingPage({
 
   const hasDiscount = Boolean(appliedCoupon);
 
+  useEffect(() => {
+    trackPricingView(userProfile);
+  }, [userProfile]);
+
   // Plan pricing configurations
   // Premium: $50/mo, $180/yr ($15/mo equivalent, 70% off)
   // Premium+: $80/mo, $288/yr ($24/mo equivalent, 70% off)
@@ -56,11 +63,11 @@ export default function PricingPage({
       const regAnnual = isPrem ? 180 : 288;
 
       if (hasDiscount) {
-        // 30% off yearly: Premium $126/yr ($10.50/mo), Premium+ $202/yr ($16.83/mo)
+        // 30% off yearly: Premium $126/yr ($10/mo)
         const discAnnual = isPrem ? 126 : 202;
-        const discMonthly = isPrem ? 10.5 : 16.83;
+        const discMonthly = isPrem ? 10 : 17;
         return {
-          displayMonthly: discMonthly % 1 === 0 ? discMonthly : discMonthly.toFixed(2),
+          displayMonthly: discMonthly,
           originalMonthly: regMonthly,
           displayAnnual: discAnnual,
           originalAnnual: regAnnual,
@@ -97,18 +104,21 @@ export default function PricingPage({
   };
 
   const premiumPricing = getPlanPricing("premium");
-  const premiumPlusPricing = getPlanPricing("premium+");
 
   const handleApplyCoupon = (e) => {
     e?.preventDefault();
     setCouponError("");
-    const code = couponInput.trim().toUpperCase();
-    if (!code) {
-      setCouponError("Please enter a valid coupon code");
+    const raw = couponInput.trim();
+    if (!raw) {
+      setCouponError("Please enter a coupon code");
       return;
     }
-    // Accept valid coupon codes (e.g. FLOW30, SAVE30, or custom codes)
-    setAppliedCoupon(code);
+    const coupon = validateCoupon(raw);
+    if (!coupon) {
+      setCouponError("Invalid or expired coupon code");
+      return;
+    }
+    setAppliedCoupon(coupon.code);
     setCouponInput("");
   };
 
@@ -130,6 +140,7 @@ export default function PricingPage({
     setError("");
     setSuccess(false);
     setLoading(planKey);
+    trackUpgradeClick("pricing_page", planKey, userProfile);
 
     // Gate behind authentication
     if (!session) {
@@ -152,7 +163,13 @@ export default function PricingPage({
       const planId = getPlanId(planKey, billingCycle, hasDiscount);
       const userEmail = session?.user?.email || "";
 
-      const { subscription_id, key_id } = await createSubscription(planKey, billingCycle, userEmail, hasDiscount);
+      const { subscription_id, key_id } = await createSubscription(
+        planKey,
+        billingCycle,
+        userEmail,
+        hasDiscount,
+        appliedCoupon
+      );
 
       openRazorpayCheckout({
         key_id,
@@ -171,7 +188,7 @@ export default function PricingPage({
             });
             setSuccess(true);
             setLoading(null);
-            onSubscribeSuccess && onSubscribeSuccess(planKey);
+            onSubscribeSuccess && onSubscribeSuccess(planKey, billingCycle);
           } catch (err) {
             setError("Payment verification failed: " + err.message);
             setLoading(null);
@@ -246,7 +263,7 @@ export default function PricingPage({
             Pricing
           </h1>
           <p className="text-white/50 text-base md:text-lg leading-relaxed">
-            Choose the plan that fits your creative workflow.
+            Simple, transparent pricing for your creative workflow.
           </p>
         </motion.div>
 
@@ -259,7 +276,10 @@ export default function PricingPage({
         >
           <button
             type="button"
-            onClick={() => setYearly(false)}
+            onClick={() => {
+              setYearly(false);
+              trackBillingToggle("Monthly", userProfile);
+            }}
             className={`text-sm tracking-tight transition-all duration-200 cursor-pointer ${
               !yearly
                 ? "text-white font-semibold drop-shadow-[0_1px_4px_rgba(0,0,0,0.6)]"
@@ -272,7 +292,13 @@ export default function PricingPage({
           {/* Luxury Switch Pill */}
           <button
             type="button"
-            onClick={() => setYearly((v) => !v)}
+            onClick={() => {
+              setYearly((v) => {
+                const next = !v;
+                trackBillingToggle(next ? "Yearly" : "Monthly", userProfile);
+                return next;
+              });
+            }}
             className="relative w-12 h-7 rounded-full flex items-center p-0.5 transition-all duration-300 bg-[#16161a] border border-white/15 border-t-white/30 shadow-[inset_0_2px_5px_rgba(0,0,0,0.7),inset_0_1px_1px_rgba(255,255,255,0.08),0_2px_8px_rgba(0,0,0,0.3)] hover:border-white/25 cursor-pointer focus:outline-none"
             aria-label="Toggle billing period"
           >
@@ -287,7 +313,10 @@ export default function PricingPage({
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setYearly(true)}
+              onClick={() => {
+                setYearly(true);
+                trackBillingToggle("Yearly", userProfile);
+              }}
               className={`text-sm tracking-tight transition-all duration-200 cursor-pointer ${
                 yearly
                   ? "text-white font-semibold drop-shadow-[0_1px_4px_rgba(0,0,0,0.6)]"
@@ -344,7 +373,7 @@ export default function PricingPage({
                       setCouponInput(e.target.value);
                       if (couponError) setCouponError("");
                     }}
-                    placeholder="Enter coupon (e.g. FLOW30)"
+                    placeholder="ENTER COUPON CODE"
                     className="w-full pl-9 pr-3 py-2 rounded-xl text-xs sm:text-sm bg-white/[0.04] border border-white/10 text-white placeholder:text-white/30 uppercase tracking-wider focus:outline-none focus:border-white/30 transition-all font-mono"
                   />
                 </div>
@@ -355,19 +384,6 @@ export default function PricingPage({
                   Apply 30% Off
                 </button>
               </form>
-              <div className="flex items-center justify-between px-2 pt-2 text-[11px] text-white/40">
-                <span>Have a discount coupon?</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAppliedCoupon("FLOW30");
-                    setCouponError("");
-                  }}
-                  className="text-white/70 hover:text-white underline cursor-pointer font-mono"
-                >
-                  Quick Apply: FLOW30
-                </button>
-              </div>
               {couponError && (
                 <p className="text-[11px] text-red-400 mt-1.5 px-2">{couponError}</p>
               )}
@@ -375,14 +391,14 @@ export default function PricingPage({
           )}
         </motion.div>
 
-        {/* Pricing Cards */}
-        <div className="flex flex-col md:flex-row gap-6 w-full max-w-3xl">
+        {/* Pricing Card */}
+        <div className="flex justify-center w-full max-w-md mx-auto">
           {/* Premium Card */}
           <motion.div
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
-            className="group relative rounded-[1.5rem] w-full md:flex-1 p-8 md:p-10 bg-gradient-to-b from-[#121317]/95 via-[#0d0e12]/95 to-[#08080a]/98 border border-white/10 border-t-white/20 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.85),0_8px_20px_-6px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.15),inset_0_0_0_1px_rgba(255,255,255,0.04)] backdrop-blur-2xl transition-all duration-300 hover:shadow-[0_30px_70px_-15px_rgba(0,0,0,0.95),0_12px_28px_-6px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.25),inset_0_0_0_1px_rgba(255,255,255,0.08)] hover:-translate-y-1.5 will-change-transform"
+            className="group relative rounded-[1.5rem] w-full p-8 md:p-10 bg-gradient-to-b from-[#121317]/95 via-[#0d0e12]/95 to-[#08080a]/98 border border-white/10 border-t-white/20 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.85),0_8px_20px_-6px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.15),inset_0_0_0_1px_rgba(255,255,255,0.04)] backdrop-blur-2xl transition-all duration-300 hover:shadow-[0_30px_70px_-15px_rgba(0,0,0,0.95),0_12px_28px_-6px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.25),inset_0_0_0_1px_rgba(255,255,255,0.08)] hover:-translate-y-1.5 will-change-transform"
           >
             {/* White Liquid Metal Procedural WebGL2 Shader Border Effect (Active on Hover) */}
             <LiquidMetalCardBorder borderRadius={24} speed={0.15} glow="subtle" />
@@ -426,112 +442,33 @@ export default function PricingPage({
                   {loading === "premium" ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
-                    <>
-                      Subscribe <ArrowRight className="w-3.5 h-3.5" />
-                    </>
+                    "Subscribe"
                   )}
                 </LiquidMetalButton>
               </div>
-
-              <p className="text-[10px] text-white/30 tracking-wide">
-                Flowsites — service operated by Greyo AI company.
-              </p>
             </div>
 
             <div className="w-full h-px bg-white/8 mb-7 relative z-10" />
 
             <ul className="space-y-4 mb-3 relative z-10">
-              {premiumFeatures.map((f) => (
+              {(yearly ? yearlyPremiumFeatures : monthlyPremiumFeatures).map((f) => (
                 <li key={f.text} className="flex items-center gap-3 text-sm">
-                  <div
-                    className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 border ${
-                      f.included
-                        ? "bg-white/[0.08] border-white/15 shadow-[inset_0_1px_0_rgba(255,255,255,0.15)]"
-                        : "bg-white/[0.02] border-white/5"
-                    }`}
-                  >
+                  <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 border bg-white/[0.08] border-white/15 shadow-[inset_0_1px_0_rgba(255,255,255,0.15)]">
                     {f.included ? (
-                      <Check className="w-3 h-3 text-white/85" />
+                      <Check className="w-3 h-3 text-white/90" />
                     ) : (
-                      <X className="w-3 h-3 text-white/25" />
+                      <X className="w-3 h-3 text-white/50" strokeWidth={2} />
                     )}
                   </div>
-                  <span className={f.included ? "text-white/80 font-normal" : "text-white/30 font-normal"}>
+                  <span
+                    className={
+                      f.included
+                        ? "text-white/85 font-normal"
+                        : "text-white/35 line-through decoration-white/25 decoration-[1.2px] font-normal"
+                    }
+                  >
                     {f.text}
                   </span>
-                </li>
-              ))}
-            </ul>
-          </motion.div>
-
-          {/* Premium+ Card */}
-          <motion.div
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.28, ease: [0.22, 1, 0.36, 1] }}
-            className="group relative rounded-[1.5rem] w-full md:flex-1 p-8 md:p-10 bg-gradient-to-b from-[#14151b]/95 via-[#0e0f14]/95 to-[#08080a]/98 border border-white/12 border-t-white/25 shadow-[0_24px_55px_-12px_rgba(0,0,0,0.9),0_10px_24px_-6px_rgba(0,0,0,0.65),inset_0_1px_0_rgba(255,255,255,0.18),inset_0_0_0_1px_rgba(255,255,255,0.06)] backdrop-blur-2xl transition-all duration-300 hover:shadow-[0_34px_75px_-15px_rgba(0,0,0,0.98),0_14px_30px_-6px_rgba(0,0,0,0.75),inset_0_1px_0_rgba(255,255,255,0.28),inset_0_0_0_1px_rgba(255,255,255,0.1)] hover:-translate-y-1.5 will-change-transform"
-          >
-            {/* White Liquid Metal Procedural WebGL2 Shader Border Effect (Active on Hover) */}
-            <LiquidMetalCardBorder borderRadius={24} speed={0.15} glow="subtle" />
-
-            <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3.5 py-0.5 rounded-full bg-white text-[#070707] text-[10px] font-bold tracking-wider uppercase shadow-[0_4px_16px_rgba(0,0,0,0.6),0_0_12px_rgba(255,255,255,0.25)] z-30 select-none">
-              {hasDiscount ? "BEST VALUE • 30% OFF" : "BEST VALUE"}
-            </div>
-
-            <div className="text-center mb-6 relative z-10">
-              <h2 className="font-display text-xl text-white/90 mb-4">Premium+</h2>
-              <div className="flex items-end justify-center gap-1.5 mb-2">
-                {premiumPlusPricing.originalMonthly && (
-                  <span className="font-display text-2xl text-white/30 line-through mb-1.5 mr-1">
-                    ${premiumPlusPricing.originalMonthly}
-                  </span>
-                )}
-                <span className="font-display text-5xl text-white tracking-tight">
-                  ${premiumPlusPricing.displayMonthly}
-                </span>
-                <span className="text-white/40 text-sm mb-2">/mo</span>
-              </div>
-              <p className="text-xs text-white/40 mb-4 transition-opacity duration-200">
-                {premiumPlusPricing.subtext}
-              </p>
-
-              <div className={`w-full h-[50px] mb-3 ${loading !== null ? "opacity-60 pointer-events-none" : ""}`}>
-                <LiquidMetalButton
-                  onClick={() => loading === null && handleSubscribe("premium+")}
-                  labelStyle={{
-                    fontSize: "14px",
-                    fontWeight: "600",
-                    letterSpacing: "0.02em",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: "8px",
-                  }}
-                >
-                  {loading === "premium+" ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <>
-                      Subscribe <ArrowRight className="w-3.5 h-3.5" />
-                    </>
-                  )}
-                </LiquidMetalButton>
-              </div>
-
-              <p className="text-[10px] text-white/30 tracking-wide">
-                Flowsites — service operated by Greyo AI company.
-              </p>
-            </div>
-
-            <div className="w-full h-px bg-white/8 mb-7 relative z-10" />
-
-            <ul className="space-y-4 mb-3 relative z-10">
-              {premiumPlusFeatures.map((f) => (
-                <li key={f.text} className="flex items-center gap-3 text-sm">
-                  <div className="w-5 h-5 rounded-full bg-white/[0.08] border border-white/15 shadow-[inset_0_1px_0_rgba(255,255,255,0.15)] flex items-center justify-center shrink-0">
-                    <Check className="w-3 h-3 text-white/85" />
-                  </div>
-                  <span className="text-white/80 font-normal">{f.text}</span>
                 </li>
               ))}
             </ul>

@@ -81,7 +81,7 @@ export function getPlanLink(planKey, billingCycle, hasDiscount = false) {
   return plan?.link || null;
 }
 
-export async function createSubscription(planKey, billingCycle, userEmail, hasDiscount = false) {
+export async function createSubscription(planKey, billingCycle, userEmail, hasDiscount = false, couponCode = null) {
   const plan_id = getPlanId(planKey, billingCycle, hasDiscount);
   if (!plan_id) throw new Error("Invalid plan or billing cycle");
 
@@ -93,6 +93,7 @@ export async function createSubscription(planKey, billingCycle, userEmail, hasDi
       plan_name,
       billing_cycle: billingCycle,
       user_email: userEmail,
+      coupon_code: couponCode,
     },
   });
 

@@ -23,4 +23,9 @@ dist-ssr
 *.ntvs*
 *.njsproj
 *.sln
-*.sw?
+# Local scratch and experiment folders
+com19/
+com21/
+glasssss/
+metal/
+space/

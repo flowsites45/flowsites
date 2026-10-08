@@ -560,6 +560,21 @@ const sharedResizeObserver =
       })
     : null;
 
+// Shared Singleton IntersectionObserver for border viewport tracking (1 observer for ALL borders)
+const borderViewportCallbacks = new Map();
+const sharedBorderViewportObserver =
+  typeof IntersectionObserver !== "undefined"
+    ? new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            const cb = borderViewportCallbacks.get(entry.target);
+            if (cb) cb(entry.isIntersecting);
+          }
+        },
+        { rootMargin: "100px 0px" }
+      )
+    : null;
+
 /** Helper fallback to draw rounded rectangle path for older engines */
 function drawRoundedRectPath(ctx, x, y, width, height, radius) {
   const r = Math.min(radius, width / 2, height / 2);
@@ -577,8 +592,10 @@ function drawRoundedRectPath(ctx, x, y, width, height, radius) {
  */
 function LiquidMetalCardBorderComponent({
   borderRadius = 20,
+  borderWidth: customBorderWidth = 2.8,
   speed = 0.35,
   glow = "normal",
+  alwaysActive = false,
 } = {}) {
   const containerRef = useRef(null);
   const canvasRef = useRef(null);
@@ -611,11 +628,12 @@ function LiquidMetalCardBorderComponent({
       }
     };
 
-    updateSize();
-
-    if (sharedResizeObserver) {
-      resizeCallbacks.set(container, updateSize);
-      sharedResizeObserver.observe(container);
+    if (alwaysActive) {
+      updateSize();
+      if (sharedResizeObserver) {
+        resizeCallbacks.set(container, updateSize);
+        sharedResizeObserver.observe(container);
+      }
     }
 
     const subscriber = {
@@ -633,8 +651,8 @@ function LiquidMetalCardBorderComponent({
         }
 
         const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
-        const borderWidth = 2.8 * dpr;
-        const radius = borderRadius * dpr;
+        const borderWidth = customBorderWidth * dpr;
+        const radius = Math.min(borderRadius * dpr, w / 2, h / 2);
 
         ctx.clearRect(0, 0, w, h);
         ctx.save();
@@ -675,6 +693,10 @@ function LiquidMetalCardBorderComponent({
         fadeTimer = null;
       }
       updateSize();
+      if (sharedResizeObserver && !alwaysActive) {
+        resizeCallbacks.set(container, updateSize);
+        sharedResizeObserver.observe(container);
+      }
       if (!isActive) {
         isActive = true;
         sharedEngine.subscribe(subscriber);
@@ -682,10 +704,15 @@ function LiquidMetalCardBorderComponent({
     };
 
     const handleMouseLeave = () => {
+      if (alwaysActive) return;
       fadeTimer = setTimeout(() => {
         if (isActive) {
           isActive = false;
           sharedEngine.unsubscribe(subscriber);
+          if (sharedResizeObserver) {
+            resizeCallbacks.delete(container);
+            sharedResizeObserver.unobserve(container);
+          }
         }
       }, 350);
     };
@@ -702,20 +729,23 @@ function LiquidMetalCardBorderComponent({
     card.addEventListener("mouseleave", handleMouseLeave);
     card.addEventListener("mousemove", handleMouseMove, { passive: true });
 
-    // Viewport intersection observer: immediately pause if scrolled off screen
-    const io = new IntersectionObserver(
-      ([entry]) => {
-        isVisibleInViewport = entry.isIntersecting;
-        if (!entry.isIntersecting && isActive) {
+    // Viewport tracking via shared singleton IntersectionObserver (eliminates 30+ separate observers)
+    if (sharedBorderViewportObserver) {
+      borderViewportCallbacks.set(container, (isIntersecting) => {
+        isVisibleInViewport = isIntersecting;
+        if (!isIntersecting && isActive) {
           isActive = false;
           sharedEngine.unsubscribe(subscriber);
+        } else if (isIntersecting && !isActive && (alwaysActive || (card.matches && card.matches(":hover")))) {
+          handleMouseEnter();
         }
-      },
-      { rootMargin: "100px 0px" }
-    );
-    io.observe(container);
+      });
+      sharedBorderViewportObserver.observe(container);
+    }
 
-    if (card.matches && card.matches(":hover")) {
+    if (alwaysActive) {
+      handleMouseEnter();
+    } else if (card.matches && card.matches(":hover")) {
       handleMouseEnter();
     }
 
@@ -727,13 +757,16 @@ function LiquidMetalCardBorderComponent({
       card.removeEventListener("mouseenter", handleMouseEnter);
       card.removeEventListener("mouseleave", handleMouseLeave);
       card.removeEventListener("mousemove", handleMouseMove);
-      io.disconnect();
+      if (sharedBorderViewportObserver) {
+        borderViewportCallbacks.delete(container);
+        sharedBorderViewportObserver.unobserve(container);
+      }
       if (sharedResizeObserver) {
         resizeCallbacks.delete(container);
         sharedResizeObserver.unobserve(container);
       }
     };
-  }, []);
+  }, [alwaysActive]);
 
   const glowBoxShadow =
     glow === "subtle" || glow === "low"
@@ -746,9 +779,11 @@ function LiquidMetalCardBorderComponent({
 
   return (
     <>
-      {/* Soft Ambient White/Silver Specular Sheen just behind the border on hover */}
+      {/* Soft Ambient White/Silver Specular Sheen just behind the border on hover / active */}
       <div
-        className="pointer-events-none absolute -inset-[1px] z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 ease-out will-change-[opacity]"
+        className={`pointer-events-none absolute -inset-[1px] z-10 transition-opacity duration-300 ease-out will-change-[opacity] ${
+          alwaysActive ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+        }`}
         style={{
           borderRadius: `${borderRadius}px`,
           boxShadow: glowBoxShadow,
@@ -758,7 +793,9 @@ function LiquidMetalCardBorderComponent({
       {/* White Liquid Metal Procedural WebGL2 Shader Border Layer */}
       <div
         ref={containerRef}
-        className="pointer-events-none absolute -inset-[1px] overflow-hidden z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 ease-out will-change-[opacity]"
+        className={`pointer-events-none absolute -inset-[1px] overflow-hidden z-20 transition-opacity duration-300 ease-out will-change-[opacity] ${
+          alwaysActive ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+        }`}
         style={{ borderRadius: `${borderRadius}px` }}
       >
         <canvas ref={canvasRef} className="absolute inset-0 w-full h-full block" />

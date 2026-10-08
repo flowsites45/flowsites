@@ -10,16 +10,35 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const VALID_COUPONS = new Set([
+  "FLOW30",
+  "VIBE30",
+  "BUILD30",
+  "CREATE30",
+  "SHIP30",
+  "CODEFLOW",
+  "PIXEL30",
+  "LAUNCH30",
+  "INSIDER30",
+]);
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    const { plan_id, plan_name, billing_cycle, user_email } = await req.json();
+    const { plan_id, plan_name, billing_cycle, user_email, coupon_code } = await req.json();
 
     if (!plan_id) {
       return new Response(JSON.stringify({ error: "plan_id is required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (coupon_code && !VALID_COUPONS.has(coupon_code.trim().toUpperCase())) {
+      return new Response(JSON.stringify({ error: "Invalid or expired coupon code" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -39,6 +58,12 @@ serve(async (req) => {
         quantity: 1,
         customer_notify: 1,
         notify_info: user_email ? { notify_email: user_email } : undefined,
+        notes: {
+          plan_name: plan_name || "",
+          billing_cycle: billing_cycle || "",
+          user_email: user_email || "",
+          coupon_code: coupon_code ? coupon_code.trim().toUpperCase() : "NONE",
+        },
       }),
     });
 

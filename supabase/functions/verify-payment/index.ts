@@ -54,10 +54,19 @@ serve(async (req) => {
       );
     }
 
-    // Determine plan key from plan_name
+    // Determine plan key from plan_name and billing_cycle (supports regular and discounted plans)
+    const isPremiumPlus =
+      plan_name?.includes("Premium+") ||
+      plan_name?.includes("Premium Plus") ||
+      (plan_name?.includes("Premium") && billing_cycle === "Yearly");
+    const isPremium = plan_name?.includes("Premium");
+
     let plan = "free";
-    if (plan_name === "Premium+" || plan_name === "Premium Plus") plan = "premium_plus";
-    else if (plan_name === "Premium") plan = "premium";
+    if (isPremiumPlus) {
+      plan = "premium_plus";
+    } else if (isPremium) {
+      plan = "premium";
+    }
 
     // Update user profile in Supabase using service role
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);

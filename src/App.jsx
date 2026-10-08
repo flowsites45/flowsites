@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useRef, useCallback } from "react"
 import { motion } from "framer-motion"
 import { Button } from "./components/ui/button"
 import { 
@@ -13,7 +13,8 @@ import {
   Loader2
 } from "lucide-react"
 import { supabase } from "./lib/supabase.js"
-import { getUserProfile, createUserProfile } from "./lib/store.js"
+import { getUserProfile, createUserProfile, updateUserPlan } from "./lib/store.js"
+import { trackPageView, trackTimeOnPage, trackAuthSuccess } from "./lib/analytics.js"
 
 import Pricing from "./components/sections/Pricing"
 import PricingPage from "./components/sections/PricingPage"
@@ -57,6 +58,9 @@ export default function App() {
   const [userProfile, setUserProfile] = useState(null);
   const [pendingCopyTemplateId, setPendingCopyTemplateId] = useState(null);
   const [pendingSubscribePlanId, setPendingSubscribePlanId] = useState(null);
+  const [authReturnView, setAuthReturnView] = useState("gallery");
+  const lastTrackedViewRef = useRef(null);
+  const viewStartTimeRef = useRef(Date.now());
 
   async function loadUserProfile(user) {
     if (!user) return;
@@ -100,10 +104,21 @@ export default function App() {
           setUserProfile(mockProfile || { plan: "free" });
         }
       };
+      window.__SET_PREMIUM_MONTHLY__ = () => {
+        const u = { id: "test-monthly-user", email: "monthly@flowsites.store", user_metadata: { full_name: "Monthly User" } };
+        setSession({ user: u });
+        setUserProfile({ id: u.id, email: u.email, plan: "premium", billing_cycle: "Monthly" });
+      };
+      window.__SET_PREMIUM_YEARLY__ = () => {
+        const u = { id: "test-yearly-user", email: "yearly@flowsites.store", user_metadata: { full_name: "Yearly VIP User" } };
+        setSession({ user: u });
+        setUserProfile({ id: u.id, email: u.email, plan: "premium_plus", billing_cycle: "Yearly" });
+      };
     }
   }, []);
 
   function handleAuthSuccess() {
+    trackAuthSuccess(session?.user);
     // pendingCopyTemplateId is already set — Gallery will auto-copy on mount
     // pendingSubscribePlanId is already set — PricingPage will auto-trigger on mount
     if (pendingSubscribePlanId) {
@@ -114,18 +129,29 @@ export default function App() {
   }
 
   function handleAuthRequired(id) {
+    setAuthReturnView(view || "gallery");
     // id is either a templateId (copy) or a planKey (subscribe)
     if (typeof id === "string" && ["premium", "premium+"].includes(id)) {
       setPendingSubscribePlanId(id);
-    } else {
+    } else if (id) {
       setPendingCopyTemplateId(id);
+    } else {
+      setPendingCopyTemplateId(null);
     }
     setView("auth");
   }
 
-  function handleSubscribeSuccess(planKey) {
+  async function handleSubscribeSuccess(planKey, billingCycle = "Yearly") {
     // Refresh user profile after successful payment
-    if (session?.user) loadUserProfile(session.user.id);
+    if (session?.user) {
+      const assignedPlan = billingCycle === "Yearly" ? "premium_plus" : "premium";
+      try {
+        await updateUserPlan(session.user.id, assignedPlan);
+      } catch (e) {
+        console.warn("Could not sync user plan locally:", e);
+      }
+      await loadUserProfile(session.user);
+    }
     setPendingSubscribePlanId(null);
   }
 
@@ -148,7 +174,43 @@ export default function App() {
     if (window.location.pathname !== slug) {
       window.history.pushState({ view }, "", slug);
     }
-  }, [view])
+
+    // Record time on page for previous view before switching
+    if (lastTrackedViewRef.current && lastTrackedViewRef.current !== view) {
+      const elapsedSeconds = Math.round((Date.now() - viewStartTimeRef.current) / 1000);
+      if (elapsedSeconds >= 3) {
+        trackTimeOnPage(viewToSlug(lastTrackedViewRef.current), elapsedSeconds, session?.user);
+      }
+    }
+
+    // Only fire trackPageView on genuine route transitions
+    if (lastTrackedViewRef.current !== view) {
+      trackPageView(slug, session?.user);
+      lastTrackedViewRef.current = view;
+      viewStartTimeRef.current = Date.now();
+    }
+  }, [view]);
+
+  // Track time on page when user blurs or unloads page
+  useEffect(() => {
+    const handleVisibilityOrUnload = () => {
+      if (document.visibilityState === "hidden") {
+        const elapsedSeconds = Math.round((Date.now() - viewStartTimeRef.current) / 1000);
+        if (elapsedSeconds >= 3 && view) {
+          trackTimeOnPage(viewToSlug(view), elapsedSeconds, session?.user);
+        }
+      } else if (document.visibilityState === "visible") {
+        viewStartTimeRef.current = Date.now();
+      }
+    };
+
+    window.addEventListener("visibilitychange", handleVisibilityOrUnload);
+    window.addEventListener("beforeunload", handleVisibilityOrUnload);
+    return () => {
+      window.removeEventListener("visibilitychange", handleVisibilityOrUnload);
+      window.removeEventListener("beforeunload", handleVisibilityOrUnload);
+    };
+  }, [view, session]);
 
   useEffect(() => {
     const onPopState = (e) => {
@@ -161,15 +223,19 @@ export default function App() {
 
   if (view === "auth") {
     if (session) {
-      setView("gallery");
+      setView(authReturnView || "gallery");
       return null;
     }
-    return <Auth onBack={() => setView("landing")} onSuccess={handleAuthSuccess} />;
+    return <Auth onBack={() => setView(authReturnView || "gallery")} onSuccess={handleAuthSuccess} />;
   }
 
   if (view === "gallery") {
     return (
       <Gallery 
+        onLogin={() => {
+          setAuthReturnView("gallery");
+          setView("auth");
+        }}
         onAdminAuth={() => setView("admin-auth")} 
         onHome={() => setView("landing")} 
         session={session}
@@ -320,7 +386,7 @@ export default function App() {
               transition={{ duration: 0.5 }}
               className="inline-flex items-center gap-1.5 rounded-full border border-white/20 border-t-white/40 bg-gradient-to-b from-white/25 to-white/10 px-3.5 sm:px-4 py-1.5 text-xs sm:text-sm text-foreground font-body mb-5 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.1),inset_0_1px_0_0_rgba(255,255,255,0.2)]"
             >
-              <span className="font-medium text-[11px] sm:text-[13px] leading-tight">✨ 100+ Premium AI Website Prompts • New Designs Everyday</span>
+              <span className="font-medium text-[11px] sm:text-[13px] leading-tight">✨ 300+ Premium AI Website Prompts • New Designs Everyday</span>
             </motion.div>
 
             <motion.h1

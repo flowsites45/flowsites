@@ -21,7 +21,9 @@ import {
   ArrowDown,
   Layers,
   Shuffle,
+  Activity,
 } from "lucide-react";
+import AdminAnalytics from "./AdminAnalytics.jsx";
 import {
   getTemplates,
   addTemplate,
@@ -92,6 +94,7 @@ function TemplateThumbnail({ template }) {
 }
 
 export default function Admin({ onBack, onViewGallery, onLogout }) {
+  const [adminTab, setAdminTab] = useState("templates"); // "templates" | "analytics"
   const [templates, setTemplates] = useState([]);
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
@@ -454,7 +457,36 @@ export default function Admin({ onBack, onViewGallery, onLogout }) {
               </button>
               <div className="text-xl font-semibold tracking-tight text-white flex items-center gap-1.5 justify-self-start">
                 <span>✦ Flowsites</span>
-                <span className="ml-2 text-xs font-medium text-white/30 uppercase tracking-wider">Admin</span>
+                <span className="ml-2 text-xs font-medium text-white/30 uppercase tracking-wider hidden sm:inline">Admin</span>
+              </div>
+
+              {/* Tab Switcher: Templates vs Analytics */}
+              <div className="flex items-center p-1 rounded-full bg-white/[0.04] border border-white/10 backdrop-blur-md ml-1 sm:ml-2">
+                <button
+                  type="button"
+                  onClick={() => setAdminTab("templates")}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all cursor-pointer ${
+                    adminTab === "templates"
+                      ? "bg-white/20 text-white shadow-sm border border-white/10"
+                      : "text-white/40 hover:text-white/80"
+                  }`}
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>Templates ({templates.length})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAdminTab("analytics")}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all cursor-pointer ${
+                    adminTab === "analytics"
+                      ? "bg-emerald-500/20 text-emerald-300 shadow-sm border border-emerald-500/30 font-semibold"
+                      : "text-white/40 hover:text-white/80"
+                  }`}
+                >
+                  <Activity className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Analytics</span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse ml-0.5" />
+                </button>
               </div>
             </div>
 
@@ -466,42 +498,48 @@ export default function Admin({ onBack, onViewGallery, onLogout }) {
                 <Eye className="w-4 h-4" />
                 View Gallery
               </button>
-              <button
-                onClick={handleRandomizeOrder}
-                disabled={randomizing || loading || templates.length <= 1}
-                className="lg-pill flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-sm font-medium text-white/80 hover:text-white transition-all hover:border-white/20 active:scale-95 disabled:opacity-50 cursor-pointer"
-                title="Shuffle all templates into a randomized order"
-              >
-                {randomizing ? (
-                  <Loader2 className="w-4 h-4 animate-spin text-[#a78bfa]" />
-                ) : (
-                  <Shuffle className="w-4 h-4 text-[#a78bfa]" />
-                )}
-                <span className="hidden sm:inline">Randomize Order</span>
-                <span className="sm:hidden">Randomize</span>
-              </button>
-              {orderChanged && (
-                <button
-                  onClick={handleSaveOrder}
-                  disabled={savingOrder}
-                  className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold bg-[#34d399] text-[#070707] hover:bg-[#34d399]/90 disabled:opacity-50 transition-all shadow-[0_8px_20px_-6px_rgba(52,211,153,0.3)] animate-pulse"
-                >
-                  {savingOrder ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Save className="w-4 h-4" />
+
+              {adminTab === "templates" && (
+                <>
+                  <button
+                    onClick={handleRandomizeOrder}
+                    disabled={randomizing || loading || templates.length <= 1}
+                    className="lg-pill flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-sm font-medium text-white/80 hover:text-white transition-all hover:border-white/20 active:scale-95 disabled:opacity-50 cursor-pointer"
+                    title="Shuffle all templates into a randomized order"
+                  >
+                    {randomizing ? (
+                      <Loader2 className="w-4 h-4 animate-spin text-[#a78bfa]" />
+                    ) : (
+                      <Shuffle className="w-4 h-4 text-[#a78bfa]" />
+                    )}
+                    <span className="hidden sm:inline">Randomize Order</span>
+                    <span className="sm:hidden">Randomize</span>
+                  </button>
+                  {orderChanged && (
+                    <button
+                      onClick={handleSaveOrder}
+                      disabled={savingOrder}
+                      className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold bg-[#34d399] text-[#070707] hover:bg-[#34d399]/90 disabled:opacity-50 transition-all shadow-[0_8px_20px_-6px_rgba(52,211,153,0.3)] animate-pulse"
+                    >
+                      {savingOrder ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Save className="w-4 h-4" />
+                      )}
+                      <span>Save Order</span>
+                    </button>
                   )}
-                  <span>Save Order</span>
-                </button>
+                  <button
+                    onClick={handleOpenAdd}
+                    className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium bg-white text-[#070707] hover:bg-white/90 transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span className="hidden sm:inline">New Template</span>
+                    <span className="sm:hidden">New</span>
+                  </button>
+                </>
               )}
-              <button
-                onClick={handleOpenAdd}
-                className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium bg-white text-[#070707] hover:bg-white/90 transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-                <span className="hidden sm:inline">New Template</span>
-                <span className="sm:hidden">New</span>
-              </button>
+
               {onLogout && (
                 <button
                   onClick={onLogout}
@@ -517,60 +555,65 @@ export default function Admin({ onBack, onViewGallery, onLogout }) {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
-        
-        {/* Stats — Liquid Glass Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          {[
-            { label: "Total Templates", value: templates.length, color: "text-white" },
-            { label: "Published", value: publishedCount, color: "text-[#34d399]" },
-            { label: "Drafts", value: draftCount, color: "text-[#fbbf24]" },
-            { label: "Categories", value: totalCategoriesCount, color: "text-[#a78bfa]" },
-          ].map((stat) => (
-            <div
-              key={stat.label}
-              className="lg-glass rounded-2xl p-5"
-            >
-              <p className="text-xs text-white/30 uppercase tracking-wider mb-1">{stat.label}</p>
-              <p className={`font-display text-3xl ${stat.color}`}>{stat.value}</p>
+        {adminTab === "analytics" ? (
+          <AdminAnalytics />
+        ) : (
+          <>
+            {/* Stats — Tactile Liquid Glass Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+              {[
+                { label: "Total Templates", value: templates.length, color: "text-white", glow: "via-white/30" },
+                { label: "Published", value: publishedCount, color: "text-[#34d399]", glow: "via-emerald-400/35" },
+                { label: "Drafts", value: draftCount, color: "text-[#fbbf24]", glow: "via-amber-400/35" },
+                { label: "Categories", value: totalCategoriesCount, color: "text-[#a78bfa]", glow: "via-purple-400/35" },
+              ].map((stat) => (
+                <div
+                  key={stat.label}
+                  className="group relative rounded-[22px] p-5 bg-gradient-to-b from-[#141419]/90 via-[#0e0e13]/95 to-[#08080b]/98 border border-white/10 border-t-white/25 shadow-[0_12px_28px_-6px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.12)] hover:border-white/20 transition-all duration-300 overflow-hidden"
+                >
+                  <div className={`absolute inset-x-3 top-0 h-[1px] bg-gradient-to-r from-transparent ${stat.glow} to-transparent pointer-events-none`} />
+                  <p className="text-[11.5px] font-medium tracking-wide uppercase text-white/40 mb-2">{stat.label}</p>
+                  <p className={`font-display text-3xl sm:text-4xl font-bold tracking-tight ${stat.color}`}>{stat.value}</p>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
 
-        {/* Search & Actions Bar */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-6">
-          <div className="relative flex-1">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
-            <input
-              type="text"
-              placeholder="Search templates..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="lg-input w-full rounded-full pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-white/30 focus:outline-none transition-colors"
-            />
-          </div>
+            {/* Search & Actions Bar (Gallery Style) */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-6">
+              <div className="relative flex-1">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/35" />
+                <input
+                  type="text"
+                  placeholder="Search templates by title or category..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full rounded-full pl-11 pr-4 py-2.5 text-sm text-white placeholder:text-white/35 bg-white/[0.04] border border-white/10 border-t-white/20 shadow-[0_4px_16px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.1)] focus:outline-none focus:border-white/30 transition-all backdrop-blur-md"
+                />
+              </div>
 
-          <button
-            onClick={handleRandomizeOrder}
-            disabled={randomizing || loading || templates.length <= 1}
-            className="lg-pill flex items-center justify-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium text-white/80 hover:text-white border border-white/10 hover:border-white/20 transition-all hover:bg-white/[0.06] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-sm shrink-0"
-            title="Shuffle all templates into a randomized order"
-          >
-            {randomizing ? (
-              <Loader2 className="w-4 h-4 animate-spin text-[#a78bfa]" />
-            ) : (
-              <Shuffle className="w-4 h-4 text-[#a78bfa]" />
-            )}
-            <span>Randomize Order</span>
-          </button>
-        </div>
-
-        {/* Templates Table — Liquid Glass */}
-        <div className="lg-glass rounded-2xl overflow-hidden">
-          {loading ? (
-            <div className="flex items-center justify-center py-20">
-              <Loader2 className="w-6 h-6 animate-spin text-white/30" />
+              <button
+                onClick={handleRandomizeOrder}
+                disabled={randomizing || loading || templates.length <= 1}
+                className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-full text-xs sm:text-sm font-semibold text-white/85 hover:text-white bg-gradient-to-b from-white/15 to-white/5 hover:from-white/25 hover:to-white/10 border border-white/15 border-t-white/30 shadow-[0_6px_16px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.2)] transition-all cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                title="Shuffle all templates into a randomized order"
+              >
+                {randomizing ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-[#a78bfa]" />
+                ) : (
+                  <Shuffle className="w-4 h-4 text-[#a78bfa]" />
+                )}
+                <span>Randomize Order</span>
+              </button>
             </div>
-          ) : (
+
+            {/* Templates Table — Liquid Glass (Gallery Container Style) */}
+            <div className="relative rounded-[26px] bg-gradient-to-b from-[#121217]/95 via-[#0d0d12]/95 to-[#08080b]/98 border border-white/10 border-t-white/25 shadow-[0_20px_48px_-12px_rgba(0,0,0,0.9),inset_0_1px_0_rgba(255,255,255,0.14)] backdrop-blur-2xl overflow-hidden">
+              <div className="absolute inset-x-6 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/35 to-transparent pointer-events-none" />
+              {loading ? (
+                <div className="flex items-center justify-center py-20">
+                  <Loader2 className="w-6 h-6 animate-spin text-white/30" />
+                </div>
+              ) : (
             <>
           {/* Desktop table header */}
           <div className="hidden md:grid grid-cols-12 gap-4 px-5 py-3 border-b border-white/5 text-xs font-medium text-white/30 uppercase tracking-wider">
@@ -726,7 +769,8 @@ export default function Admin({ onBack, onViewGallery, onLogout }) {
             </>
           )}
         </div>
-
+          </>
+        )}
       </main>
 
       {/* Form Modal — Liquid Glass */}

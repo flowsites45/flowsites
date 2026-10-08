@@ -1,12 +1,28 @@
+const VALID_COUPONS = new Set([
+  "FLOW30",
+  "VIBE30",
+  "BUILD30",
+  "CREATE30",
+  "SHIP30",
+  "CODEFLOW",
+  "PIXEL30",
+  "LAUNCH30",
+  "INSIDER30",
+]);
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { plan_id, plan_name, billing_cycle, user_email } = req.body;
+  const { plan_id, plan_name, billing_cycle, user_email, coupon_code } = req.body;
 
   if (!plan_id) {
     return res.status(400).json({ error: "plan_id is required" });
+  }
+
+  if (coupon_code && !VALID_COUPONS.has(coupon_code.trim().toUpperCase())) {
+    return res.status(400).json({ error: "Invalid or expired coupon code" });
   }
 
   const keyId = process.env.RAZORPAY_KEY_ID;
@@ -28,6 +44,7 @@ export default async function handler(req, res) {
         plan_name: plan_name || "",
         billing_cycle: billing_cycle || "",
         user_email: user_email || "",
+        coupon_code: coupon_code ? coupon_code.trim().toUpperCase() : "NONE",
       },
     };
     if (billing_cycle === "Yearly") {
