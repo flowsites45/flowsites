@@ -542,31 +542,31 @@ export default function AdminAnalytics() {
   return (
     <div className="space-y-8 select-none">
       {/* ── Top Header Controls Bar (Gallery Liquid Glass Header Style) ── */}
-      <div className="relative p-5 sm:p-6 rounded-[24px] bg-gradient-to-b from-[#141419]/90 via-[#0e0e13]/95 to-[#08080b]/98 border border-white/10 border-t-white/25 shadow-[0_16px_40px_-10px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.15)] backdrop-blur-2xl overflow-hidden">
+      <div className="relative px-4 py-3 sm:px-6 sm:py-3.5 rounded-[18px] bg-gradient-to-b from-[#141419]/90 via-[#0e0e13]/95 to-[#08080b]/98 border border-white/10 border-t-white/25 shadow-[0_12px_32px_-10px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.15)] backdrop-blur-2xl overflow-hidden">
         {/* Top specular highlight edge line */}
         <div className="absolute inset-x-8 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/40 to-transparent pointer-events-none" />
 
-        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-5 relative z-10">
-          <div>
-            <div className="flex flex-wrap items-center gap-3">
-              <h2 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-white flex items-center gap-2.5">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 md:gap-4 relative z-10">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h2 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-2">
                 <span>Website Telemetry</span>
               </h2>
               {/* Live Pulsing Badge */}
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-xs font-semibold tracking-wide uppercase shadow-[0_0_16px_rgba(52,211,153,0.18)]">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[10.5px] font-semibold tracking-wide uppercase shadow-[0_0_12px_rgba(52,211,153,0.15)]">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                 <span>Live Active</span>
               </div>
             </div>
-            <p className="text-xs sm:text-sm text-white/50 mt-1.5 font-normal">
+            <p className="text-xs text-white/50 mt-0.5 font-normal line-clamp-1">
               High-resolution activity intelligence: visitor flows, prompt conversions, preview plays, and keyword demand.
             </p>
           </div>
 
           {/* Action Tools & Timeframe Chips */}
-          <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
+          <div className="flex items-center flex-wrap sm:flex-nowrap gap-2 shrink-0 w-full md:w-auto justify-start md:justify-end">
             {/* Timeframe Chips (Gallery Pill Style) */}
-            <div className="flex items-center p-1 rounded-full bg-white/[0.04] border border-white/10 border-t-white/20 shadow-[inset_0_1px_2px_rgba(0,0,0,0.4)] backdrop-blur-md">
+            <div className="flex items-center p-0.5 sm:p-1 rounded-full bg-white/[0.04] border border-white/10 border-t-white/20 shadow-[inset_0_1px_2px_rgba(0,0,0,0.4)] backdrop-blur-md">
               {[
                 { id: "24h", label: "24 Hours" },
                 { id: "7d", label: "7 Days" },
@@ -577,7 +577,7 @@ export default function AdminAnalytics() {
                   key={t.id}
                   type="button"
                   onClick={() => setTimeRange(t.id)}
-                  className={`relative px-3 sm:px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-300 cursor-pointer ${
+                  className={`relative px-2.5 sm:px-3 py-1 rounded-full text-[11.5px] sm:text-xs font-medium transition-all duration-300 cursor-pointer ${
                     timeRange === t.id
                       ? "text-white shadow-[0_4px_12px_rgba(0,0,0,0.5)]"
                       : "text-white/50 hover:text-white/80"
@@ -600,7 +600,7 @@ export default function AdminAnalytics() {
               type="button"
               onClick={loadData}
               title="Refresh live stream"
-              className="flex items-center justify-center w-9 h-9 rounded-full bg-white/[0.04] hover:bg-white/[0.1] text-white/70 hover:text-white border border-white/10 border-t-white/20 shadow-[0_4px_12px_rgba(0,0,0,0.3)] transition-all cursor-pointer active:scale-95"
+              className="flex items-center justify-center w-8 h-8 rounded-full bg-white/[0.04] hover:bg-white/[0.1] text-white/70 hover:text-white border border-white/10 border-t-white/20 shadow-[0_4px_12px_rgba(0,0,0,0.3)] transition-all cursor-pointer active:scale-95"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin text-white" : ""}`} />
             </button>
@@ -609,7 +609,7 @@ export default function AdminAnalytics() {
             <button
               type="button"
               onClick={handleExportCsv}
-              className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.05] hover:bg-white/[0.1] text-white/85 hover:text-white text-xs font-medium border border-white/10 border-t-white/20 shadow-[0_4px_12px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.1)] transition-all cursor-pointer active:scale-95"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.05] hover:bg-white/[0.1] text-white/85 hover:text-white text-xs font-medium border border-white/10 border-t-white/20 shadow-[0_4px_12px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.1)] transition-all cursor-pointer active:scale-95 whitespace-nowrap"
             >
               <Download className="w-3.5 h-3.5 text-white/70" />
               <span>Export CSV</span>
