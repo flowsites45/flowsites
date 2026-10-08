@@ -554,7 +554,7 @@ export default function Gallery({
       {/* Top Navigation — Liquid Glass Header */}
       <header className="lg-header sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-20">
-          <div className="flex items-center justify-between h-[74px] sm:h-16 gap-2.5 sm:gap-3">
+          <div className="flex items-center justify-between h-[86px] sm:h-16 gap-2.5 sm:gap-3 pb-2 sm:pb-0">
             {/* Logo */}
             <button onClick={onHome} className="text-xl font-semibold tracking-tight text-white flex items-center gap-1.5 shrink-0 cursor-pointer hover:text-white/80 transition-colors">
               <span>✦ Flowsites</span>
@@ -670,7 +670,7 @@ export default function Gallery({
               </div>
 
               {/* Go Premium Container with "Limited 70% off" Minimalist Active Liquid Metal Notice */}
-              <div className="relative flex items-center justify-center shrink-0">
+              <div className="relative flex items-center justify-center shrink-0 -translate-y-1 sm:translate-y-0">
                 <div className="h-[34px] min-w-[102px] sm:h-[40px] sm:min-w-[140px]">
                   <LiquidMetalButton
                     onClick={() => onGoUnlimited && onGoUnlimited()}
@@ -684,7 +684,7 @@ export default function Gallery({
                 <button
                   type="button"
                   onClick={() => onGoUnlimited && onGoUnlimited()}
-                  className="group absolute top-full mt-1 sm:mt-1.5 h-[15px] sm:h-[18px] px-2 rounded-full bg-[#08080b]/95 backdrop-blur-md cursor-pointer flex items-center justify-center select-none transition-all duration-200 hover:scale-[1.03] active:scale-[0.98] z-20 whitespace-nowrap"
+                  className="group absolute top-full mt-1.5 sm:mt-2 h-[15px] sm:h-[18px] px-2 rounded-full bg-[#08080b]/95 backdrop-blur-md cursor-pointer flex items-center justify-center select-none transition-all duration-200 hover:scale-[1.03] active:scale-[0.98] z-20 whitespace-nowrap"
                   title="Limited 70% off - Upgrade to Premium"
                 >
                   <LiquidMetalCardBorder borderRadius={9999} borderWidth={1.1} speed={0.25} glow="none" alwaysActive={true} />
