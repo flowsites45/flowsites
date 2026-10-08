@@ -94,7 +94,15 @@ function TemplateThumbnail({ template }) {
 }
 
 export default function Admin({ onBack, onViewGallery, onLogout }) {
-  const [adminTab, setAdminTab] = useState("templates"); // "templates" | "analytics"
+  const [adminTab, setAdminTab] = useState(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("tab") === "analytics" || params.get("user")) {
+        return "analytics";
+      }
+    }
+    return "templates";
+  });
   const [templates, setTemplates] = useState([]);
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
@@ -554,7 +562,7 @@ export default function Admin({ onBack, onViewGallery, onLogout }) {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative">
         {adminTab === "analytics" ? (
           <AdminAnalytics />
         ) : (

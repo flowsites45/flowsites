@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Activity,
@@ -25,6 +26,16 @@ import {
   Flame,
   MousePointer,
   Compass,
+  X,
+  UserCheck,
+  User,
+  ArrowRight,
+  Calendar,
+  ExternalLink,
+  ChevronRight,
+  ArrowLeft,
+  Laptop,
+  FileText,
 } from "lucide-react";
 import { getAnalyticsEvents, formatDuration } from "../../lib/analytics";
 
@@ -48,14 +59,97 @@ function formatRelativeTime(isoString) {
   return `${days}d ago`;
 }
 
+function formatExactDateTime(isoString) {
+  if (!isoString) return "";
+  try {
+    const d = new Date(isoString);
+    return d.toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+  } catch {
+    return isoString;
+  }
+}
+
 export default function AdminAnalytics() {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState("7d"); // "24h", "7d", "30d", "all"
-  const [activeTab, setActiveTab] = useState("overview"); // "overview", "searches", "live"
+  const [activeTab, setActiveTab] = useState("overview"); // "overview", "users", "searches", "live"
   const [eventFilter, setEventFilter] = useState("all");
   const [refreshing, setRefreshing] = useState(false);
   const [activeBarHover, setActiveBarHover] = useState(null);
+
+  // User detail journey state
+  const [selectedUserKey, setSelectedUserKey] = useState(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      return params.get("user") || null;
+    }
+    return null;
+  });
+  const [userModalFilter, setUserModalFilter] = useState("all");
+  const [timelineSearchTerm, setTimelineSearchTerm] = useState("");
+  const [copiedUserId, setCopiedUserId] = useState(false);
+  const [userSearchTerm, setUserSearchTerm] = useState("");
+  const [userTypeFilter, setUserTypeFilter] = useState("all"); // "all", "registered", "anonymous"
+
+  // User dossier action handlers
+  const handleSelectUser = useCallback((userKey) => {
+    setSelectedUserKey(userKey);
+    setUserModalFilter("all");
+    setTimelineSearchTerm("");
+    if (typeof window !== "undefined") {
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.set("tab", "analytics");
+      newUrl.searchParams.set("user", userKey);
+      window.history.replaceState({}, "", newUrl);
+    }
+  }, []);
+
+  const handleCloseUser = useCallback(() => {
+    setSelectedUserKey(null);
+    setTimelineSearchTerm("");
+    if (typeof window !== "undefined") {
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete("user");
+      window.history.replaceState({}, "", newUrl);
+    }
+  }, []);
+
+  const handleCopyUserId = useCallback((textToCopy) => {
+    if (!textToCopy) return;
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(textToCopy);
+      setCopiedUserId(true);
+      setTimeout(() => setCopiedUserId(false), 2000);
+    }
+  }, []);
+
+  const handleOpenUserNewTab = useCallback((userKey) => {
+    if (!userKey || typeof window === "undefined") return;
+    const url = `/admin?tab=analytics&user=${encodeURIComponent(userKey)}`;
+    window.open(url, "_blank");
+  }, []);
+
+  const handleExportUserJson = useCallback((user) => {
+    if (!user || typeof window === "undefined") return;
+    const cleanUser = {
+      ...user,
+      pathsVisited: Array.from(user.pathsVisited || []),
+    };
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(cleanUser, null, 2));
+    const downloadAnchor = document.createElement("a");
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", `user-dossier-${(user.displayName || "user").replace(/[^a-z0-9]/gi, "_")}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+  }, []);
 
   // Load analytics events
   const loadData = useCallback(async () => {
@@ -72,6 +166,17 @@ export default function AdminAnalytics() {
     const interval = setInterval(loadData, 15000);
     return () => clearInterval(interval);
   }, [loadData]);
+
+  // Close user dossier on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape" && selectedUserKey) {
+        handleCloseUser();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedUserKey, handleCloseUser]);
 
   // Filter events by timeframe
   const filteredEvents = useMemo(() => {
@@ -220,6 +325,157 @@ export default function AdminAnalytics() {
       topOses: Object.entries(oses).sort((a, b) => b[1] - a[1]).slice(0, 4),
     };
   }, [filteredEvents]);
+
+  // Group all events by unique user / visitor for Detailed User Journeys
+  const usersList = useMemo(() => {
+    const userMap = new Map();
+
+    filteredEvents.forEach((ev) => {
+      const isRegistered =
+        ev.user_email &&
+        ev.user_email !== "Anonymous Visitor" &&
+        ev.user_email !== "Registered User" &&
+        ev.user_email.includes("@");
+
+      const userKey = isRegistered ? ev.user_email : (ev.user_id || ev.session_id || "anonymous_visitor");
+
+      let user = userMap.get(userKey);
+      if (!user) {
+        user = {
+          key: userKey,
+          isRegistered: Boolean(isRegistered),
+          email: isRegistered ? ev.user_email : null,
+          id: ev.user_id || ev.session_id || userKey,
+          displayName: isRegistered
+            ? ev.user_email
+            : `Visitor #${String(ev.user_id || ev.session_id || userKey).slice(-5)}`,
+          firstSeen: ev.created_at,
+          lastActive: ev.created_at,
+          totalEvents: 0,
+          pageViews: 0,
+          copies: 0,
+          previews: 0,
+          searches: 0,
+          likes: 0,
+          upgrades: 0,
+          timeOnPageSeconds: 0,
+          device: ev.metadata?.device || "Desktop",
+          browser: ev.metadata?.browser || "Other",
+          os: ev.metadata?.os || "Other",
+          timezone: ev.metadata?.timezone || "UTC",
+          language: ev.metadata?.language || "en",
+          pathsVisited: new Set(),
+          searchesList: [],
+          copiedTemplates: [],
+          previewedTemplates: [],
+          events: [],
+        };
+        userMap.set(userKey, user);
+      }
+
+      if (new Date(ev.created_at).getTime() < new Date(user.firstSeen).getTime()) {
+        user.firstSeen = ev.created_at;
+      }
+      if (new Date(ev.created_at).getTime() > new Date(user.lastActive).getTime()) {
+        user.lastActive = ev.created_at;
+      }
+
+      user.totalEvents += 1;
+      user.events.push(ev);
+
+      if (ev.path) user.pathsVisited.add(ev.path);
+      if (ev.metadata?.device) user.device = ev.metadata.device;
+      if (ev.metadata?.browser) user.browser = ev.metadata.browser;
+      if (ev.metadata?.os) user.os = ev.metadata.os;
+
+      if (ev.event_type === "page_view") {
+        user.pageViews += 1;
+      } else if (ev.event_type === "prompt_copy") {
+        user.copies += 1;
+        const title = ev.metadata?.template_title || ev.event_name.replace('Copied "', "").replace('"', "");
+        if (title && !user.copiedTemplates.includes(title)) user.copiedTemplates.push(title);
+      } else if (ev.event_type === "video_preview" || ev.event_type === "preview_duration") {
+        if (ev.event_type === "video_preview") user.previews += 1;
+        const title = ev.metadata?.template_title || ev.event_name.replace('Previewed "', "").replace('"', "");
+        if (title && !user.previewedTemplates.includes(title)) user.previewedTemplates.push(title);
+      } else if (ev.event_type === "search_query") {
+        user.searches += 1;
+        const q = ev.metadata?.query || ev.event_name.replace('Searched "', "").replace('"', "");
+        if (q && !user.searchesList.includes(q)) user.searchesList.push(q);
+      } else if (ev.event_type === "template_like") {
+        user.likes += 1;
+      } else if (ev.event_type === "upgrade_click" || ev.event_type === "pricing_view") {
+        user.upgrades += 1;
+      } else if (ev.event_type === "time_on_page" || (ev.metadata?.duration_seconds && ev.event_type !== "preview_duration")) {
+        user.timeOnPageSeconds += Number(ev.metadata?.duration_seconds) || 0;
+      }
+    });
+
+    const list = Array.from(userMap.values());
+    list.sort((a, b) => new Date(b.lastActive).getTime() - new Date(a.lastActive).getTime());
+    return list;
+  }, [filteredEvents]);
+
+  // Filtered users list based on search and type filter
+  const filteredUsersList = useMemo(() => {
+    return usersList.filter((u) => {
+      if (userTypeFilter === "registered" && !u.isRegistered) return false;
+      if (userTypeFilter === "anonymous" && u.isRegistered) return false;
+      if (userSearchTerm.trim()) {
+        const term = userSearchTerm.toLowerCase();
+        const matchesKey = u.key.toLowerCase().includes(term);
+        const matchesName = u.displayName.toLowerCase().includes(term);
+        const matchesDevice = (u.device || "").toLowerCase().includes(term);
+        const matchesBrowser = (u.browser || "").toLowerCase().includes(term);
+        if (!matchesKey && !matchesName && !matchesDevice && !matchesBrowser) return false;
+      }
+      return true;
+    });
+  }, [usersList, userTypeFilter, userSearchTerm]);
+
+  // Selected user and their chronological action timeline
+  const selectedUser = useMemo(() => {
+    if (!selectedUserKey) return null;
+    return usersList.find((u) => u.key === selectedUserKey) || null;
+  }, [usersList, selectedUserKey]);
+
+  const selectedUserTimeline = useMemo(() => {
+    if (!selectedUser) return [];
+    let list = [...selectedUser.events];
+    list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    if (userModalFilter !== "all") {
+      if (userModalFilter === "time_on_page") {
+        list = list.filter((e) => e.event_type === "time_on_page" || e.event_type === "preview_duration");
+      } else {
+        list = list.filter((e) => e.event_type === userModalFilter);
+      }
+    }
+    if (timelineSearchTerm.trim()) {
+      const q = timelineSearchTerm.toLowerCase();
+      list = list.filter((e) => {
+        const name = (e.event_name || "").toLowerCase();
+        const type = (e.event_type || "").toLowerCase();
+        const path = (e.path || "").toLowerCase();
+        const query = (e.metadata?.query || "").toLowerCase();
+        const tTitle = (e.metadata?.template_title || "").toLowerCase();
+        return name.includes(q) || type.includes(q) || path.includes(q) || query.includes(q) || tTitle.includes(q);
+      });
+    }
+    return list;
+  }, [selectedUser, userModalFilter, timelineSearchTerm]);
+
+  // Breakdown of routes visited with count
+  const userRouteBreakdown = useMemo(() => {
+    if (!selectedUser) return [];
+    const counts = {};
+    selectedUser.events.forEach((ev) => {
+      const p = ev.path || "/";
+      counts[p] = (counts[p] || 0) + 1;
+    });
+    return Object.entries(counts)
+      .map(([path, count]) => ({ path, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [selectedUser]);
 
   // Daily Timeline Chart Data (Last 7 or 14 points)
   const timelineData = useMemo(() => {
@@ -383,20 +639,26 @@ export default function AdminAnalytics() {
         </div>
 
         {/* Card 2: Unique Visitors */}
-        <div className="group relative p-5 rounded-[22px] bg-gradient-to-b from-[#141419]/90 via-[#0e0e13]/95 to-[#08080b]/98 border border-white/10 border-t-white/25 shadow-[0_12px_28px_-6px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.12)] hover:border-white/20 transition-all duration-300 overflow-hidden">
+        <div
+          onClick={() => setActiveTab("users")}
+          className="group relative p-5 rounded-[22px] bg-gradient-to-b from-[#141419]/90 via-[#0e0e13]/95 to-[#08080b]/98 border border-white/10 border-t-white/25 shadow-[0_12px_28px_-6px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.12)] hover:border-purple-500/40 hover:scale-[1.01] transition-all duration-300 overflow-hidden cursor-pointer"
+          title="Click to view all visitor journeys"
+        >
           <div className="absolute inset-x-3 top-0 h-[1px] bg-gradient-to-r from-transparent via-purple-400/30 to-transparent pointer-events-none" />
           <div className="flex items-center justify-between mb-3">
             <span className="text-[11px] font-medium tracking-wide uppercase text-white/45">Visitors</span>
-            <div className="w-7 h-7 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 shadow-[0_0_14px_rgba(168,85,247,0.15)]">
+            <div className="w-7 h-7 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 shadow-[0_0_14px_rgba(168,85,247,0.15)] group-hover:scale-110 transition-transform">
               <Users className="w-3.5 h-3.5" />
             </div>
           </div>
           <div className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-white mb-1">
             {formatNumber(stats.uniqueVisitors)}
           </div>
-          <div className="text-[10.5px] text-white/40 flex items-center gap-1 font-medium truncate">
-            <span className="text-purple-400 font-semibold">{deviceStats.devicePcts.Desktop}%</span>
-            <span>desktop</span>
+          <div className="text-[10.5px] text-purple-400 flex items-center justify-between font-medium">
+            <span>{deviceStats.devicePcts.Desktop}% desktop</span>
+            <span className="text-[9.5px] text-purple-300/80 group-hover:text-purple-300 font-semibold flex items-center gap-0.5">
+              Journeys <ChevronRight className="w-3 h-3 inline" />
+            </span>
           </div>
         </div>
 
@@ -638,9 +900,10 @@ export default function AdminAnalytics() {
       </div>
 
       {/* ── Sub-Tab Navigation Bar (Gallery Style Category Chips) ── */}
-      <div className="flex items-center gap-2 border-b border-white/10 pb-4">
+      <div className="flex items-center gap-2 border-b border-white/10 pb-4 overflow-x-auto no-scrollbar">
         {[
           { id: "overview", label: "Top Templates Leaderboard", icon: Flame },
+          { id: "users", label: "Visitors & User Journeys", icon: Users },
           { id: "searches", label: "Search Intelligence", icon: Search },
           { id: "live", label: "Real-Time Telemetry Stream", icon: Activity },
         ].map((tab) => {
@@ -765,7 +1028,209 @@ export default function AdminAnalytics() {
         </div>
       )}
 
-      {/* ── Tab 2: Search Intelligence ── */}
+      {/* ── Tab 2: Visitors & User Journeys ── */}
+      {activeTab === "users" && (
+        <div className="space-y-6">
+          {/* Top Control Header Card */}
+          <div className="relative p-6 sm:p-7 rounded-[26px] bg-gradient-to-b from-[#121217]/95 via-[#0d0d12]/95 to-[#08080b]/98 border border-white/10 border-t-white/25 shadow-[0_20px_48px_-12px_rgba(0,0,0,0.9),inset_0_1px_0_rgba(255,255,255,0.14)] backdrop-blur-2xl overflow-hidden">
+            <div className="absolute inset-x-6 top-0 h-[1px] bg-gradient-to-r from-transparent via-purple-400/35 to-transparent pointer-events-none" />
+
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 mb-6">
+              <div>
+                <h3 className="font-display text-lg font-bold text-white flex items-center gap-2">
+                  <Users className="w-5 h-5 text-purple-400" />
+                  <span>Visitors & User Journeys</span>
+                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-purple-500/15 text-purple-300 border border-purple-500/30 font-mono">
+                    {usersList.length} unique profiles
+                  </span>
+                </h3>
+                <p className="text-xs text-white/40 mt-1">
+                  Click on any user or anonymous visitor below to inspect their step-by-step telemetry dossier, watch time, and click trail.
+                </p>
+              </div>
+
+              {/* Search & Filter Toolbar */}
+              <div className="flex flex-wrap items-center gap-3">
+                {/* Search Bar */}
+                <div className="relative min-w-[220px] sm:min-w-[280px]">
+                  <Search className="w-3.5 h-3.5 text-white/40 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={userSearchTerm}
+                    onChange={(e) => setUserSearchTerm(e.target.value)}
+                    placeholder="Search by email, visitor ID, device..."
+                    className="w-full pl-9 pr-3 py-1.5 rounded-full bg-white/[0.04] hover:bg-white/[0.07] focus:bg-white/[0.08] border border-white/10 text-white placeholder-white/35 text-xs outline-none focus:border-purple-400/50 transition-all"
+                  />
+                  {userSearchTerm && (
+                    <button
+                      type="button"
+                      onClick={() => setUserSearchTerm("")}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Filter Pills */}
+                <div className="flex items-center gap-1 p-1 rounded-full bg-white/[0.04] border border-white/10 text-xs">
+                  {[
+                    { id: "all", label: `All (${usersList.length})` },
+                    { id: "registered", label: `Registered (${usersList.filter((u) => u.isRegistered).length})` },
+                    { id: "anonymous", label: `Anonymous (${usersList.filter((u) => !u.isRegistered).length})` },
+                  ].map((f) => (
+                    <button
+                      key={f.id}
+                      type="button"
+                      onClick={() => setUserTypeFilter(f.id)}
+                      className={`px-3 py-1 rounded-full transition-all cursor-pointer ${
+                        userTypeFilter === f.id
+                          ? "bg-purple-500/25 text-purple-300 font-semibold border border-purple-500/40 shadow-sm"
+                          : "text-white/50 hover:text-white"
+                      }`}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Visitors Table / List */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-white/10 text-white/40 uppercase font-mono text-[10px] tracking-wider">
+                    <th className="py-3 px-4">Visitor / Account</th>
+                    <th className="py-3 px-4">Client Context</th>
+                    <th className="py-3 px-4">Time On Site</th>
+                    <th className="py-3 px-4">Touchpoints & Actions</th>
+                    <th className="py-3 px-4">Last Active</th>
+                    <th className="py-3 px-4 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {filteredUsersList.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-14 text-center text-white/40 text-xs">
+                        No visitors match your current filter or search query.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredUsersList.map((user) => (
+                      <tr
+                        key={user.key}
+                        onClick={() => handleSelectUser(user.key)}
+                        className="group hover:bg-white/[0.03] transition-colors cursor-pointer"
+                      >
+                        {/* Visitor Info */}
+                        <td className="py-3.5 px-4">
+                          <div className="flex items-center gap-3">
+                            <div
+                              className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${
+                                user.isRegistered
+                                  ? "bg-purple-500/15 text-purple-400 border-purple-500/30 shadow-[0_0_12px_rgba(168,85,247,0.15)]"
+                                  : "bg-sky-500/15 text-sky-400 border-sky-500/30 shadow-[0_0_12px_rgba(56,189,248,0.12)]"
+                              }`}
+                            >
+                              {user.isRegistered ? <UserCheck className="w-4 h-4" /> : <Globe className="w-4 h-4" />}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="font-semibold text-white group-hover:text-purple-300 transition-colors truncate flex items-center gap-2">
+                                <span>{user.displayName}</span>
+                                {user.isRegistered ? (
+                                  <span className="text-[9.5px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 font-medium">
+                                    Registered
+                                  </span>
+                                ) : (
+                                  <span className="text-[9.5px] px-2 py-0.5 rounded-full bg-white/5 text-white/50 border border-white/10 font-mono">
+                                    Anonymous
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[10.5px] text-white/40 font-mono truncate mt-0.5">
+                                ID: {user.id}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Device / Client Context */}
+                        <td className="py-3.5 px-4 text-white/70">
+                          <div className="flex items-center gap-1.5 font-medium">
+                            {user.device === "Mobile" ? (
+                              <Smartphone className="w-3.5 h-3.5 text-white/40" />
+                            ) : (
+                              <Monitor className="w-3.5 h-3.5 text-white/40" />
+                            )}
+                            <span>{user.device}</span>
+                            <span className="text-white/30">•</span>
+                            <span className="text-white/50 font-normal">{user.os} ({user.browser})</span>
+                          </div>
+                        </td>
+
+                        {/* Time On Site */}
+                        <td className="py-3.5 px-4">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-teal-500/10 text-teal-300 border border-teal-500/25 font-mono font-medium text-xs">
+                            <Clock className="w-3 h-3" />
+                            <span>{formatDuration(user.timeOnPageSeconds)}</span>
+                          </span>
+                        </td>
+
+                        {/* Actions badges */}
+                        <td className="py-3.5 px-4">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="px-2 py-0.5 rounded-md bg-white/[0.05] border border-white/10 text-white/70 font-mono text-[11px]">
+                              {user.totalEvents} events
+                            </span>
+                            {user.copies > 0 && (
+                              <span className="px-2 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-mono text-[11px]">
+                                {user.copies} copies
+                              </span>
+                            )}
+                            {user.previews > 0 && (
+                              <span className="px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-400 font-mono text-[11px]">
+                                {user.previews} previews
+                              </span>
+                            )}
+                            {user.searches > 0 && (
+                              <span className="px-2 py-0.5 rounded-md bg-rose-500/15 border border-rose-500/30 text-rose-400 font-mono text-[11px]">
+                                {user.searches} searches
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Last Active */}
+                        <td className="py-3.5 px-4 font-mono text-white/40 text-[11px]">
+                          {formatRelativeTime(user.lastActive)}
+                        </td>
+
+                        {/* Button Action */}
+                        <td className="py-3.5 px-4 text-right">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSelectUser(user.key);
+                            }}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.06] hover:bg-white/[0.12] text-white/80 hover:text-white border border-white/10 text-xs font-medium transition-all group-hover:border-purple-400/40 group-hover:shadow-[0_0_12px_rgba(168,85,247,0.2)] cursor-pointer"
+                          >
+                            <span>Inspect</span>
+                            <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Tab 3: Search Intelligence ── */}
       {activeTab === "searches" && (
         <div className="relative p-6 sm:p-7 rounded-[26px] bg-gradient-to-b from-[#121217]/95 via-[#0d0d12]/95 to-[#08080b]/98 border border-white/10 border-t-white/25 shadow-[0_20px_48px_-12px_rgba(0,0,0,0.9),inset_0_1px_0_rgba(255,255,255,0.14)] backdrop-blur-2xl overflow-hidden">
           <div className="absolute inset-x-6 top-0 h-[1px] bg-gradient-to-r from-transparent via-rose-400/30 to-transparent pointer-events-none" />
@@ -884,10 +1349,19 @@ export default function AdminAnalytics() {
                 const isSearch = ev.event_type === "search_query";
                 const isUpgrade = ev.event_type === "upgrade_click" || ev.event_type === "pricing_view";
 
+                const isRegistered =
+                  ev.user_email &&
+                  ev.user_email !== "Anonymous Visitor" &&
+                  ev.user_email !== "Registered User" &&
+                  ev.user_email.includes("@");
+                const userKey = isRegistered ? ev.user_email : (ev.user_id || ev.session_id || "anonymous_visitor");
+
                 return (
                   <div
                     key={ev.id || `${ev.created_at}_${Math.random()}`}
-                    className="flex items-center justify-between p-3.5 rounded-2xl bg-white/[0.02] hover:bg-white/[0.05] border border-white/5 hover:border-white/15 transition-all text-xs"
+                    onClick={() => handleSelectUser(userKey)}
+                    className="flex items-center justify-between p-3.5 rounded-2xl bg-white/[0.02] hover:bg-white/[0.06] border border-white/5 hover:border-purple-500/30 transition-all text-xs cursor-pointer group"
+                    title="Click to view full user journey"
                   >
                     <div className="flex items-center gap-3.5 min-w-0">
                       {/* Tactile Icon Badge */}
@@ -935,7 +1409,19 @@ export default function AdminAnalytics() {
                           </span>
                         </div>
                         <div className="text-[11px] text-white/40 truncate flex items-center gap-2 mt-0.5">
-                          <span className="text-white/60 font-mono">{ev.user_email || "Anonymous Visitor"}</span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSelectUser(userKey);
+                            }}
+                            className="text-white/70 hover:text-purple-300 font-mono hover:underline cursor-pointer flex items-center gap-1.5 transition-colors group/user"
+                          >
+                            <span className="truncate">{ev.user_email || `Visitor #${String(ev.user_id || ev.session_id || "").slice(-5)}`}</span>
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/10 text-white/60 group-hover/user:bg-purple-500/20 group-hover/user:text-purple-300 font-sans">
+                              Dossier ↗
+                            </span>
+                          </button>
                           <span>•</span>
                           <span>{ev.metadata?.device || "Desktop"} ({ev.metadata?.browser || "Browser"})</span>
                           <span>•</span>
@@ -944,10 +1430,20 @@ export default function AdminAnalytics() {
                       </div>
                     </div>
 
-                    <div className="shrink-0 text-right ml-4">
+                    <div className="shrink-0 text-right ml-4 flex items-center gap-2.5">
                       <span className="text-[11px] font-mono text-white/40">
                         {formatRelativeTime(ev.created_at)}
                       </span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSelectUser(userKey);
+                        }}
+                        className="hidden sm:inline-flex opacity-0 group-hover:opacity-100 px-2.5 py-1 rounded-full bg-white/[0.08] hover:bg-purple-500/20 text-white/70 hover:text-purple-300 border border-white/10 text-[11px] font-medium transition-all cursor-pointer"
+                      >
+                        Inspect →
+                      </button>
                     </div>
                   </div>
                 );
@@ -956,6 +1452,458 @@ export default function AdminAnalytics() {
           </div>
         </div>
       )}
+
+      {/* ── Complete Full-Screen User Dossier Page (Portaled to document.body) ── */}
+      {typeof document !== "undefined" &&
+        createPortal(
+          <AnimatePresence>
+            {selectedUser && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="fixed inset-0 z-[9999] bg-[#07070a] overflow-y-auto w-full h-full text-white flex flex-col selection:bg-purple-500/30"
+              >
+                {/* Top Ambient Glow */}
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1100px] h-[320px] bg-gradient-to-b from-purple-600/15 via-sky-600/10 to-transparent blur-[140px] pointer-events-none" />
+
+                {/* Single Clean Sticky Top Command Bar */}
+                <header className="sticky top-0 z-50 bg-[#07070a]/95 backdrop-blur-2xl border-b border-white/10 px-4 sm:px-8 py-3 shrink-0 shadow-lg">
+                  <div className="max-w-7xl mx-auto w-full flex items-center justify-between gap-4">
+                    {/* Left: Back Button & User Info */}
+                    <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                      <button
+                        type="button"
+                        onClick={handleCloseUser}
+                        className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/[0.08] hover:bg-white/[0.16] border border-white/15 hover:border-white/25 text-white text-xs font-semibold transition-all cursor-pointer group shadow-sm shrink-0"
+                      >
+                        <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
+                        <span>Back to Analytics</span>
+                        <kbd className="hidden sm:inline-block text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-white/50 font-mono">
+                          ESC
+                        </kbd>
+                      </button>
+
+                      <div className="h-4 w-[1px] bg-white/15 hidden sm:block shrink-0" />
+
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-xs text-white/40 font-mono hidden md:inline">User Dossier:</span>
+                        <span className="text-sm font-semibold text-white truncate max-w-[200px] sm:max-w-xs font-display">
+                          {selectedUser.displayName}
+                        </span>
+                        <span
+                          className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border shrink-0 ${
+                            selectedUser.isRegistered
+                              ? "bg-purple-500/20 text-purple-300 border-purple-500/35"
+                              : "bg-sky-500/15 text-sky-300 border-sky-500/30 font-mono"
+                          }`}
+                        >
+                          {selectedUser.isRegistered ? "Registered" : "Anonymous"}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Right: Actions */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div className="hidden lg:flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-xs font-medium mr-1">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+                        <span>Live Telemetry</span>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleCopyUserId(selectedUser.key || selectedUser.id)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 text-white/80 hover:text-white text-xs font-medium transition-all cursor-pointer"
+                        title="Copy User Identifier"
+                      >
+                        {copiedUserId ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-emerald-400" />
+                            <span className="text-emerald-400 font-medium">Copied!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">Copy ID</span>
+                          </>
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleExportUserJson(selectedUser)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 text-purple-200 text-xs font-medium transition-all cursor-pointer shadow-[0_0_15px_rgba(168,85,247,0.2)]"
+                        title="Download complete JSON report of this user's activity"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Export JSON</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleCloseUser}
+                        className="w-8 h-8 rounded-full bg-white/[0.06] hover:bg-white/[0.14] border border-white/10 flex items-center justify-center text-white/60 hover:text-white transition-all cursor-pointer ml-1"
+                        aria-label="Close user dossier"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </header>
+
+                {/* Dossier Body Content Container */}
+                <main className="relative max-w-7xl mx-auto w-full px-4 sm:px-8 py-8 space-y-8 flex-1">
+                  {/* 1. Large Hero User Profile Card */}
+                  <div className="relative p-6 sm:p-8 rounded-[32px] bg-gradient-to-b from-[#14141c]/95 via-[#0e0e14]/95 to-[#08080c]/98 border border-white/10 border-t-white/25 shadow-[0_24px_60px_-12px_rgba(0,0,0,0.9),inset_0_1px_0_rgba(255,255,255,0.15)] overflow-hidden">
+                    <div className="absolute inset-x-8 top-0 h-[1px] bg-gradient-to-r from-transparent via-purple-400/40 to-transparent pointer-events-none" />
+
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                      {/* Left: Avatar & Identities */}
+                      <div className="flex items-center gap-4 sm:gap-6 min-w-0 flex-1">
+                        <div
+                          className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl sm:rounded-3xl flex items-center justify-center shrink-0 border shadow-2xl ${
+                            selectedUser.isRegistered
+                              ? "bg-purple-500/20 text-purple-300 border-purple-500/40 shadow-[0_0_30px_rgba(168,85,247,0.3)]"
+                              : "bg-sky-500/20 text-sky-300 border-sky-500/40 shadow-[0_0_30px_rgba(56,189,248,0.25)]"
+                          }`}
+                        >
+                          {selectedUser.isRegistered ? (
+                            <UserCheck className="w-8 h-8 sm:w-10 sm:h-10" />
+                          ) : (
+                            <Globe className="w-8 h-8 sm:w-10 sm:h-10" />
+                          )}
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2.5 mb-2.5">
+                            <h1 className="font-display text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white tracking-tight truncate">
+                              {selectedUser.displayName}
+                            </h1>
+                            <span
+                              className={`text-xs px-3 py-1 rounded-full font-semibold border ${
+                                selectedUser.isRegistered
+                                  ? "bg-purple-500/20 text-purple-300 border-purple-500/40 shadow-[0_0_12px_rgba(168,85,247,0.2)]"
+                                  : "bg-sky-500/15 text-sky-300 border-sky-500/35 font-mono"
+                              }`}
+                            >
+                              {selectedUser.isRegistered ? "Registered User" : "Anonymous Visitor"}
+                            </span>
+                          </div>
+
+                          {/* Client Environment Chips */}
+                          <div className="flex flex-wrap items-center gap-2 text-xs text-white/60">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/10 font-mono">
+                              <span className="text-white/40">ID:</span>
+                              <span className="truncate max-w-[180px] sm:max-w-[260px]">{selectedUser.id}</span>
+                            </span>
+
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/10">
+                              {selectedUser.device === "Mobile" ? (
+                                <Smartphone className="w-3.5 h-3.5 text-sky-400" />
+                              ) : (
+                                <Laptop className="w-3.5 h-3.5 text-purple-400" />
+                              )}
+                              <span>{selectedUser.device}</span>
+                            </span>
+
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/10">
+                              <Monitor className="w-3.5 h-3.5 text-white/40" />
+                              <span>{selectedUser.os} ({selectedUser.browser})</span>
+                            </span>
+
+                            {selectedUser.timezone && (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/10 font-mono">
+                                <Clock className="w-3.5 h-3.5 text-teal-400" />
+                                <span>{selectedUser.timezone}</span>
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right: Lifecycle Timestamps Glass Panel */}
+                      <div className="flex flex-col sm:flex-row lg:flex-col items-stretch gap-2.5 text-xs shrink-0 pt-4 lg:pt-0 border-t lg:border-t-0 border-white/10 min-w-[240px]">
+                        <div className="px-3.5 py-2.5 rounded-xl bg-white/[0.03] border border-white/5 flex items-center justify-between gap-4 font-mono">
+                          <span className="text-white/40 text-[10.5px] uppercase tracking-wider">First Seen</span>
+                          <span className="text-white/80 font-medium text-right text-[11.5px]">{formatExactDateTime(selectedUser.firstSeen)}</span>
+                        </div>
+                        <div className="px-3.5 py-2.5 rounded-xl bg-white/[0.03] border border-white/5 flex items-center justify-between gap-4 font-mono">
+                          <span className="text-white/40 text-[10.5px] uppercase tracking-wider">Last Active</span>
+                          <span className="text-white font-semibold flex items-center gap-1.5 text-right text-[11.5px]">
+                            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                            {formatRelativeTime(selectedUser.lastActive)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 2. Key Metrics Matrix (6 Spacious Symmetrical Cards) */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
+                    {[
+                      { label: "Time on Site", val: formatDuration(selectedUser.timeOnPageSeconds), sub: "Total engagement", icon: Clock, color: "text-teal-400" },
+                      { label: "Total Actions", val: selectedUser.totalEvents, sub: "Recorded touches", icon: Zap, color: "text-purple-400" },
+                      { label: "Page Views", val: selectedUser.pageViews, sub: "Routes opened", icon: Eye, color: "text-sky-400" },
+                      { label: "Copies", val: selectedUser.copies, sub: "Prompts copied", icon: Copy, color: "text-emerald-400" },
+                      { label: "Previews", val: selectedUser.previews, sub: "Videos watched", icon: Play, color: "text-amber-400" },
+                      { label: "Searches", val: selectedUser.searches, sub: "Queries typed", icon: Search, color: "text-rose-400" },
+                    ].map((m) => {
+                      const Icon = m.icon;
+                      return (
+                        <div
+                          key={m.label}
+                          className="flex flex-col justify-between p-4 sm:p-5 rounded-2xl bg-gradient-to-b from-white/[0.04] to-white/[0.01] border border-white/10 hover:border-white/20 transition-all duration-200"
+                        >
+                          <div className="flex items-center justify-between mb-2.5">
+                            <span className="text-[10.5px] uppercase font-mono tracking-wider text-white/50 font-medium">
+                              {m.label}
+                            </span>
+                            <Icon className={`w-4 h-4 ${m.color} opacity-80`} />
+                          </div>
+                          <div className="font-display text-2xl sm:text-3xl font-extrabold text-white font-mono tracking-tight my-1">
+                            {m.val}
+                          </div>
+                          <div className="text-[11px] text-white/40 font-mono mt-1">{m.sub}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* 3. Behavioral Footprints (Routes Breakdown & Search Terms) */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
+                    {/* Visited Routes Breakdown */}
+                    <div className="flex flex-col h-full p-5 sm:p-6 rounded-[24px] bg-gradient-to-b from-white/[0.03] to-white/[0.01] border border-white/10">
+                      <div className="flex items-center justify-between mb-4 pb-3 border-b border-white/5">
+                        <div className="flex items-center gap-2">
+                          <Compass className="w-4 h-4 text-sky-400" />
+                          <h3 className="font-display text-sm font-bold text-white uppercase tracking-wider">
+                            Visited Routes & Page Depth
+                          </h3>
+                        </div>
+                        <span className="text-[11px] font-mono text-white/40">
+                          {userRouteBreakdown.length} unique routes
+                        </span>
+                      </div>
+
+                      <div className="space-y-2 max-h-64 overflow-y-auto pr-1 flex-1">
+                        {userRouteBreakdown.length === 0 ? (
+                          <div className="py-8 text-center text-white/30 italic">No routes recorded.</div>
+                        ) : (
+                          userRouteBreakdown.map((item) => (
+                            <div
+                              key={item.path}
+                              className="flex items-center justify-between p-2.5 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 transition-colors font-mono"
+                            >
+                              <span className="text-white/80 font-medium truncate max-w-[80%]">{item.path}</span>
+                              <span className="px-2 py-0.5 rounded-md bg-sky-500/15 text-sky-300 border border-sky-500/25 text-[11px] shrink-0 font-semibold">
+                                {item.count} touches
+                              </span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Search Queries List */}
+                    <div className="flex flex-col h-full p-5 sm:p-6 rounded-[24px] bg-gradient-to-b from-white/[0.03] to-white/[0.01] border border-white/10">
+                      <div className="flex items-center justify-between mb-4 pb-3 border-b border-white/5">
+                        <div className="flex items-center gap-2">
+                          <Search className="w-4 h-4 text-rose-400" />
+                          <h3 className="font-display text-sm font-bold text-white uppercase tracking-wider">
+                            Search Queries & Keyword Intent
+                          </h3>
+                        </div>
+                        <span className="text-[11px] font-mono text-white/40">
+                          {selectedUser.searchesList.length} queries
+                        </span>
+                      </div>
+
+                      <div className="max-h-64 overflow-y-auto pr-1 flex-1">
+                        {selectedUser.searchesList.length === 0 ? (
+                          <div className="py-8 text-center text-white/30 italic w-full">
+                            This visitor has not typed any search queries yet.
+                          </div>
+                        ) : (
+                          <div className="flex flex-wrap gap-2">
+                            {selectedUser.searchesList.map((q, idx) => (
+                              <span
+                                key={`${q}_${idx}`}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 font-mono text-xs shadow-sm"
+                              >
+                                <Search className="w-3 h-3 text-rose-400" />
+                                <span>"{q}"</span>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 4. Expansive Chronological Action Trail (No middle line, clean cards) */}
+                  <div className="p-6 sm:p-8 rounded-[30px] bg-gradient-to-b from-[#121217]/95 via-[#0d0d12]/95 to-[#08080b]/98 border border-white/10 border-t-white/25 shadow-2xl relative">
+                    {/* Header & Search / Filters */}
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-6 border-b border-white/10">
+                      <div>
+                        <h2 className="font-display text-lg sm:text-xl font-bold text-white flex items-center gap-2.5">
+                          <Activity className="w-5 h-5 text-purple-400" />
+                          <span>Granular Activity Trail</span>
+                        </h2>
+                        <p className="text-xs text-white/40 mt-1">
+                          Chronological feed of every single visitor touchpoint and user event
+                        </p>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                        {/* Search inside user's timeline */}
+                        <div className="relative">
+                          <Search className="w-3.5 h-3.5 text-white/40 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                          <input
+                            type="text"
+                            placeholder="Search actions..."
+                            value={timelineSearchTerm}
+                            onChange={(e) => setTimelineSearchTerm(e.target.value)}
+                            className="pl-8 pr-3 py-1.5 rounded-full bg-white/[0.05] hover:bg-white/[0.08] focus:bg-white/[0.1] border border-white/10 focus:border-purple-400/50 text-xs text-white placeholder-white/30 outline-none transition-all w-full sm:w-48"
+                          />
+                        </div>
+
+                        {/* Timeline Filter Pills */}
+                        <div className="flex flex-wrap items-center gap-1 p-1 rounded-full bg-white/[0.04] border border-white/10 text-xs">
+                          {[
+                            { id: "all", label: `All (${selectedUser.events.length})` },
+                            { id: "prompt_copy", label: `Copies (${selectedUser.copies})` },
+                            { id: "video_preview", label: `Previews (${selectedUser.previews})` },
+                            { id: "time_on_page", label: "Time" },
+                            { id: "search_query", label: `Searches (${selectedUser.searches})` },
+                            { id: "page_view", label: `Views (${selectedUser.pageViews})` },
+                          ].map((tf) => (
+                            <button
+                              key={tf.id}
+                              type="button"
+                              onClick={() => setUserModalFilter(tf.id)}
+                              className={`px-3 py-1 rounded-full transition-all cursor-pointer text-[11px] ${
+                                userModalFilter === tf.id
+                                  ? "bg-white/20 text-white font-semibold shadow-sm"
+                                  : "text-white/50 hover:text-white"
+                              }`}
+                            >
+                              {tf.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Activity Feed Cards (Zero middle lines) */}
+                    <div className="pt-6">
+                      {selectedUserTimeline.length === 0 ? (
+                        <div className="py-16 text-center text-xs text-white/40">
+                          No actions match your current filter or search query for this user.
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {selectedUserTimeline.map((ev, index) => {
+                            const isCopy = ev.event_type === "prompt_copy";
+                            const isPreview = ev.event_type === "video_preview";
+                            const isPreviewDuration = ev.event_type === "preview_duration";
+                            const isTimeOnPage = ev.event_type === "time_on_page";
+                            const isSearch = ev.event_type === "search_query";
+                            const isUpgrade = ev.event_type === "upgrade_click" || ev.event_type === "pricing_view";
+
+                            return (
+                              <div
+                                key={ev.id || `${ev.created_at}_${index}`}
+                                className="flex items-start sm:items-center justify-between gap-4 p-4 rounded-2xl bg-white/[0.025] hover:bg-white/[0.055] border border-white/[0.07] hover:border-purple-500/30 transition-all text-xs group"
+                              >
+                                <div className="flex items-start sm:items-center gap-3.5 min-w-0 flex-1">
+                                  {/* Clean Integrated Icon Badge */}
+                                  <div
+                                    className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border shadow-md ${
+                                      isCopy
+                                        ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30 shadow-[0_0_12px_rgba(52,211,153,0.15)]"
+                                        : isPreview || isPreviewDuration
+                                        ? "bg-amber-500/15 text-amber-400 border-amber-500/30 shadow-[0_0_12px_rgba(251,191,36,0.15)]"
+                                        : isTimeOnPage
+                                        ? "bg-teal-500/15 text-teal-300 border-teal-500/30 shadow-[0_0_12px_rgba(45,212,191,0.15)]"
+                                        : isSearch
+                                        ? "bg-rose-500/15 text-rose-400 border-rose-500/30 shadow-[0_0_12px_rgba(244,63,94,0.15)]"
+                                        : isUpgrade
+                                        ? "bg-purple-500/15 text-purple-400 border-purple-500/30 shadow-[0_0_12px_rgba(168,85,247,0.15)]"
+                                        : "bg-sky-500/15 text-sky-400 border-sky-500/30 shadow-[0_0_12px_rgba(56,189,248,0.15)]"
+                                    }`}
+                                  >
+                                    {isCopy ? (
+                                      <Copy className="w-4 h-4" />
+                                    ) : isPreview || isPreviewDuration ? (
+                                      <Play className="w-4 h-4" />
+                                    ) : isTimeOnPage ? (
+                                      <Clock className="w-4 h-4" />
+                                    ) : isSearch ? (
+                                      <Search className="w-4 h-4" />
+                                    ) : isUpgrade ? (
+                                      <Sparkles className="w-4 h-4" />
+                                    ) : (
+                                      <Eye className="w-4 h-4" />
+                                    )}
+                                  </div>
+
+                                  {/* Event Details */}
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <span className="font-semibold text-white text-sm tracking-tight">{ev.event_name}</span>
+                                      {ev.metadata?.formatted_duration && (
+                                        <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-teal-500/15 text-teal-300 border border-teal-500/30 font-mono font-medium">
+                                          ⏱ {ev.metadata.formatted_duration}
+                                        </span>
+                                      )}
+                                      <span className="px-2 py-0.5 rounded-md bg-white/[0.05] border border-white/10 text-white/60 uppercase text-[9px] font-mono">
+                                        {ev.event_type.replace(/_/g, " ")}
+                                      </span>
+                                    </div>
+
+                                    <div className="flex flex-wrap items-center gap-2 mt-1 text-[11px] text-white/50 font-mono">
+                                      <span>Path: <strong className="text-white/80 font-normal">{ev.path || "/"}</strong></span>
+                                      {ev.metadata?.query && (
+                                        <>
+                                          <span>•</span>
+                                          <span className="text-rose-300 font-medium">Query: "{ev.metadata.query}"</span>
+                                        </>
+                                      )}
+                                      {ev.metadata?.template_title && (
+                                        <>
+                                          <span>•</span>
+                                          <span className="text-amber-300 font-medium">Template: "{ev.metadata.template_title}"</span>
+                                        </>
+                                      )}
+                                      {ev.metadata?.scroll_depth && (
+                                        <>
+                                          <span>•</span>
+                                          <span>Depth: {ev.metadata.scroll_depth}%</span>
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Timestamps */}
+                                <div className="shrink-0 text-right ml-2 sm:ml-4 font-mono text-white/40">
+                                  <div className="text-xs text-white/70 font-medium">{formatRelativeTime(ev.created_at)}</div>
+                                  <div className="text-[10px] text-white/30 mt-0.5 hidden sm:block">{formatExactDateTime(ev.created_at)}</div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </main>
+              </motion.div>
+            )}
+          </AnimatePresence>,
+          document.body
+        )}
 
     </div>
   );
