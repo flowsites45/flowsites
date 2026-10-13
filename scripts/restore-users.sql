@@ -140,7 +140,7 @@ SET
   full_name = EXCLUDED.full_name,
   avatar_url = EXCLUDED.avatar_url;
 
--- User: admin@flowsites.com (free)
+-- User: admin@flowsites.com (password: disciplinematters)
 INSERT INTO auth.users (
   id,
   instance_id,
@@ -159,16 +159,19 @@ INSERT INTO auth.users (
   'authenticated',
   'authenticated',
   'admin@flowsites.com',
-  '',
-  '2026-06-30 18:17:17.583388+00',
-  '{"provider":"google","providers":["google"]}'::jsonb,
-  '{"email_verified":true}'::jsonb,
+  extensions.crypt('disciplinematters', extensions.gen_salt('bf')),
+  NOW(),
+  '{"provider":"email","providers":["email"]}'::jsonb,
+  '{"email_verified":true,"full_name":"Admin"}'::jsonb,
   '2026-06-30 18:17:17.583388+00',
   NOW()
 ) ON CONFLICT (id) DO UPDATE
 SET
+  encrypted_password = extensions.crypt('disciplinematters', extensions.gen_salt('bf')),
   email = EXCLUDED.email,
-  raw_user_meta_data = EXCLUDED.raw_user_meta_data;
+  email_confirmed_at = COALESCE(auth.users.email_confirmed_at, NOW()),
+  raw_app_meta_data = '{"provider":"email","providers":["email"]}'::jsonb,
+  updated_at = NOW();
 
 INSERT INTO public.user_profiles (
   id,
