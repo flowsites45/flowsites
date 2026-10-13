@@ -171,7 +171,11 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem("flowsites_view", view);
     const slug = viewToSlug(view);
-    if (window.location.pathname !== slug) {
+    // Don't overwrite the URL if it contains auth tokens or codes waiting to be exchanged
+    const hasAuthParams = window.location.search.includes("code=") || 
+                          window.location.hash.includes("access_token=") ||
+                          window.location.search.includes("error=");
+    if (window.location.pathname !== slug && !hasAuthParams) {
       window.history.pushState({ view }, "", slug);
     }
 
