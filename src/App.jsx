@@ -80,17 +80,30 @@ export default function App() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
-      if (data.session?.user) loadUserProfile(data.session.user);
+      if (data.session?.user) {
+        loadUserProfile(data.session.user);
+        // Clean URL params if returning from OAuth
+        if (window.location.search.includes("code=") || window.location.hash.includes("access_token=")) {
+          window.history.replaceState({ view }, "", viewToSlug(view));
+        }
+      }
       setAuthLoading(false);
     });
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, newSession) => {
       setSession(newSession);
-      if (newSession?.user) loadUserProfile(newSession.user);
-      else setUserProfile(null);
+      if (newSession?.user) {
+        loadUserProfile(newSession.user);
+        // Clean URL params if returning from OAuth
+        if (window.location.search.includes("code=") || window.location.hash.includes("access_token=")) {
+          window.history.replaceState({ view }, "", viewToSlug(view));
+        }
+      } else {
+        setUserProfile(null);
+      }
       setAuthLoading(false);
     });
     return () => listener.subscription.unsubscribe();
-  }, []);
+  }, [view]);
 
   useEffect(() => {
     if (import.meta.env.DEV) {
