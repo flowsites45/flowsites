@@ -114,32 +114,92 @@ export async function incrementLikes(id) {
   return data;
 }
 
+const R2_PUBLIC_URL = "https://pub-6e6682d5b928477ab40c1873a1345ec5.r2.dev";
+
 export async function uploadImage(file) {
-  const ext = file.name.split(".").pop();
-  const fileName = `images/${Date.now()}-${Math.random().toString(36).slice(2, 9)}.${ext}`;
-  const { error: uploadError } = await supabase.storage
-    .from("templates")
-    .upload(fileName, file, { cacheControl: "3600", upsert: false });
-  if (uploadError) {
-    console.error("Error uploading image:", uploadError);
+  try {
+    const res = await fetch(`/api/upload-media?folder=images&filename=${encodeURIComponent(file.name)}`, {
+      method: "POST",
+      headers: { "Content-Type": file.type || "image/png" },
+      body: file,
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return data.url;
+    }
+  } catch (err) {
+    console.debug("API upload fallback to direct R2:", err);
+  }
+
+  try {
+    const { S3Client, PutObjectCommand } = await import("@aws-sdk/client-s3");
+    const r2 = new S3Client({
+      region: "auto",
+      endpoint: "https://2ce26eb6461eee8136e8f288f08323f2.r2.cloudflarestorage.com",
+      credentials: {
+        accessKeyId: "3bab56668fe9424661928cad49dd77c7",
+        secretAccessKey: "1aeffa788bcbf92af91f83f558c81796109ea9192c62343dcd5b7b81c00beaa5",
+      },
+    });
+    const ext = file.name.split(".").pop();
+    const key = `images/${Date.now()}-${Math.random().toString(36).slice(2, 9)}.${ext}`;
+    await r2.send(
+      new PutObjectCommand({
+        Bucket: "flowsites-media",
+        Key: key,
+        Body: file,
+        ContentType: file.type || "image/png",
+        CacheControl: "public, max-age=31536000, immutable",
+      })
+    );
+    return `${R2_PUBLIC_URL}/${key}`;
+  } catch (err) {
+    console.error("Error uploading image to R2:", err);
     return null;
   }
-  const { data: urlData } = supabase.storage.from("templates").getPublicUrl(fileName);
-  return urlData.publicUrl;
 }
 
 export async function uploadVideo(file) {
-  const ext = file.name.split(".").pop();
-  const fileName = `videos/${Date.now()}-${Math.random().toString(36).slice(2, 9)}.${ext}`;
-  const { error: uploadError } = await supabase.storage
-    .from("templates")
-    .upload(fileName, file, { cacheControl: "3600", upsert: false });
-  if (uploadError) {
-    console.error("Error uploading video:", uploadError);
+  try {
+    const res = await fetch(`/api/upload-media?folder=videos&filename=${encodeURIComponent(file.name)}`, {
+      method: "POST",
+      headers: { "Content-Type": file.type || "video/mp4" },
+      body: file,
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return data.url;
+    }
+  } catch (err) {
+    console.debug("API upload fallback to direct R2:", err);
+  }
+
+  try {
+    const { S3Client, PutObjectCommand } = await import("@aws-sdk/client-s3");
+    const r2 = new S3Client({
+      region: "auto",
+      endpoint: "https://2ce26eb6461eee8136e8f288f08323f2.r2.cloudflarestorage.com",
+      credentials: {
+        accessKeyId: "3bab56668fe9424661928cad49dd77c7",
+        secretAccessKey: "1aeffa788bcbf92af91f83f558c81796109ea9192c62343dcd5b7b81c00beaa5",
+      },
+    });
+    const ext = file.name.split(".").pop();
+    const key = `videos/${Date.now()}-${Math.random().toString(36).slice(2, 9)}.${ext}`;
+    await r2.send(
+      new PutObjectCommand({
+        Bucket: "flowsites-media",
+        Key: key,
+        Body: file,
+        ContentType: file.type || "video/mp4",
+        CacheControl: "public, max-age=31536000, immutable",
+      })
+    );
+    return `${R2_PUBLIC_URL}/${key}`;
+  } catch (err) {
+    console.error("Error uploading video to R2:", err);
     return null;
   }
-  const { data: urlData } = supabase.storage.from("templates").getPublicUrl(fileName);
-  return urlData.publicUrl;
 }
 
 export async function getTopLayouts() {
